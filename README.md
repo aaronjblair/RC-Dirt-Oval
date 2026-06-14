@@ -3,9 +3,12 @@
 A browser 3D **1/10-scale dirt-oval RC sprint car racing game**, modeled on the real **Team Losi 22S Sprint** (TLR 22 platform). Built with **Babylon.js 7 + Havok (WASM) + Vite + TypeScript** — no engine install, no server. The production build is a static folder you can host anywhere.
 
 - **Driver-stand camera** — a fixed trackside RC vantage (toggle an aerial view with `C`).
-- **Sim-leaning physics** — custom raycast vehicle, slip-based friction-circle tires, evolving dirt grip, tire wear, and tunable car setup.
+- **Sim-leaning physics** — custom raycast vehicle, slip-based friction-circle tires, throttle-steer, and a visual wheelstand/squat/dive.
+- **Two-groove dirt that evolves** — a fast bottom that rubbers in early and a top **cushion** that comes in as the track slicks off, so the racing line migrates over a run.
+- **Real dirt racecraft AI** — reads the fast groove, passes by taking the line you aren't on, throws **slide jobs**, defends the inside, and races with pace ebbs/bobbles for a dynamic, shuffling pack.
 - **15-track career/championship** — progressively harder dirt ovals; podium (top-3) to advance; night rounds under the lights.
-- **Full ~8–10-car fields** of winged sprint cars (every car a clean winged sprint).
+- **Full ~8–10-car fields** of winged sprint cars (every car a clean winged sprint), with right-rear rooster-tail dust and a high-revving methanol engine note.
+- **Live HUD** — lap/position, **interval gaps** to the cars ahead/behind, last vs best lap, tire wear, track state, minimap.
 - **Gamepad / yoke + pedals primary, keyboard fallback.**
 
 ## Controls
@@ -31,6 +34,9 @@ npm run build    # tsc --noEmit (strict typecheck) then vite build -> dist/
 npm run preview  # serve the production build locally
 ```
 `dist/` is the whole game. It must be **served over http(s)** — opening `index.html` from `file://` won't work (browsers block ES modules + WASM there). See **[DISTRIBUTION.md](DISTRIBUTION.md)** for itch.io / Netlify / local-server / same-Wi-Fi options.
+
+## Share a live link (GitHub Pages)
+A workflow at `.github/workflows/deploy.yml` builds and publishes the game on every push to `main`. To turn it on once: in the repo, go to **Settings → Pages → Build and deployment → Source: GitHub Actions**. The next push deploys to `https://<user>.github.io/RCSprint/` — a link you can send to anyone. (GitHub Pages is free on **public** repos; private-repo Pages needs a paid plan. The relative `base` in `vite.config.ts` also lets you drag `dist/` straight onto Netlify/itch.io.)
 
 > `npm run build` is the only gate — there is no test runner or linter. `tsconfig` is strict (`noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`), so an unused symbol fails the build. Use `npx tsc --noEmit` for a fast typecheck.
 

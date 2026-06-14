@@ -33,6 +33,10 @@ export class AIDriver {
   private aggression: number; // 0..1 willingness to slide-job / defend
   private wobblePhase = Math.random() * 10;
   private slideTimer = 0; // >0 while committed to cutting up across a leader
+  private paceWave = Math.random() * 10; // slow ebb/flow of pace over a stint
+  private paceFreq = 0.25 + Math.random() * 0.25;
+  private bobbleTimer = 4 + Math.random() * 12; // countdown to the next possible bobble
+  private bobble = 0; // seconds remaining of a current bobble (brief off-corner lift)
 
   constructor(
     private vehicle: RaycastVehicle,
@@ -127,15 +131,26 @@ export class AIDriver {
       }
     }
 
+    // --- pace variety: each driver ebbs and flows, and lower-skill drivers bobble ---
+    this.paceWave += dt;
+    const paceMod = Math.sin(this.paceWave * this.paceFreq) * 0.06 * (1 - this.skill);
+    this.bobbleTimer -= dt;
+    if (this.bobbleTimer <= 0) {
+      this.bobbleTimer = 7 + Math.random() * 13;
+      if (Math.random() < (1 - this.skill) * 0.5) this.bobble = 0.5 + Math.random() * 0.5;
+    }
+    let bobbleLift = 0;
+    if (this.bobble > 0) { this.bobble -= dt; bobbleLift = 0.35; }
+
     this.wobblePhase += dt;
-    const wobble = Math.sin(this.wobblePhase * 1.7) * 0.025 * (1 - this.skill);
+    const wobble = Math.sin(this.wobblePhase * 1.7) * (0.025 + bobbleLift * 0.04) * (1 - this.skill);
     const steer = Math.max(-1, Math.min(1, alpha * 1.6 + dodge + wobble));
 
     // --- throttle/brake to hold the physics-based corner speed (momentum oval) ---
     const muEff = v.cfg.tireGrip * v.gripMult;
-    const margin = 0.82 + 0.14 * this.skill;
+    const margin = 0.82 + 0.14 * this.skill + paceMod;
     const vCorner = Math.sqrt(Math.max(4, muEff * 9.81 * radius)) * margin;
-    const paceCap = 0.9 + 0.1 * this.skill + passLift;
+    const paceCap = 0.9 + 0.1 * this.skill + passLift - bobbleLift;
     let throttle: number, brake = 0;
     if (speed > vCorner + 0.4) {
       throttle = 0;
