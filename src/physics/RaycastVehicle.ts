@@ -117,6 +117,15 @@ export class RaycastVehicle {
   get upDot(): number {
     return Vector3.Dot(this.groundNormal, UP);
   }
+  /** Current heading (yaw) in radians; matches forward = (sin,0,cos). */
+  get heading(): number {
+    return this.yaw;
+  }
+
+  /** Scrub speed on car-to-car contact. */
+  bump(scrub = 0.9) {
+    this.vLong *= scrub;
+  }
 
   /** Scrub speed when scraping a wall (called by the bounds limiter). */
   collideWall() {

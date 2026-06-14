@@ -9,13 +9,13 @@ import "@babylonjs/core/Lights/Shadows/shadowGeneratorSceneComponent";
 
 import { initPhysics } from "./physics/PhysicsWorld";
 import { InputManager } from "./core/Input";
-import { createCar } from "./car/Car";
 import { DriverStandCamera } from "./core/DriverStandCamera";
 import { setupEnvironment, SUN_DIR } from "./core/Environment";
 import { OvalTrack } from "./track/OvalTrack";
 import { buildScenery } from "./track/Scenery";
 import { TRACK_M2 } from "./track/TrackDef";
 import { RaceManager } from "./race/RaceManager";
+import { Field } from "./race/Field";
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 const fpsEl = document.getElementById("fps") as HTMLDivElement;
@@ -54,51 +54,32 @@ async function boot() {
   const scenery = buildScenery(scene, track, shadow);
   cam.setStand(scenery.standPosition);
 
-  // Player car on the grid
-  const grid = track.gridPose(0);
-  const car = createCar(scene, plugin, shadow, {
-    color: new Color3(0.9, 0.08, 0.12),
-    number: 22,
-    spawn: grid.pos,
-    yaw: grid.yaw,
-  });
-
-  // Race timing
+  // Race timing + full field (player + AI)
   const race = new RaceManager(track, TRACK_M2.laps);
-  const player = race.add("player", true, () => car.vehicle.position);
+  const field = new Field(scene, plugin, shadow, track, TRACK_M2, race);
+  const player = race.racers.find((r) => r.isPlayer)!;
   race.start(performance.now());
 
   const input = new InputManager();
-  (window as any).__car = car;
+  (window as any).__field = field;
   (window as any).__track = track;
   (window as any).__race = race;
 
-  const wallLimit = TRACK_M2.width / 2 - 0.7;
   let acc = 0;
-
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(0.033, engine.getDeltaTime() / 1000);
     const drive = input.sample();
-    car.vehicle.update(dt, drive);
-
-    // keep the car on the racing surface (retaining walls)
-    const proj = track.project(car.vehicle.position);
-    if (Math.abs(proj.lateral) > wallLimit) {
-      const np = proj.center.add(proj.outward.scale(Math.sign(proj.lateral) * wallLimit));
-      car.vehicle.position.x = np.x;
-      car.vehicle.position.z = np.z;
-      car.vehicle.collideWall();
-    }
+    field.update(dt, drive);
 
     const now = performance.now();
     race.update(now);
-    cam.update(car.vehicle.position, dt);
+    cam.update(field.playerVehicle.position, dt);
 
     acc += engine.getDeltaTime();
     if (acc > 90) {
       acc = 0;
       fpsEl.textContent = `${engine.getFps().toFixed(0)} fps`;
-      el("hudSpeed").textContent = `${Math.round(car.vehicle.speed * SCALE_MPH)}`;
+      el("hudSpeed").textContent = `${Math.round(field.playerVehicle.speed * SCALE_MPH)}`;
       el("hudLap").innerHTML = `${Math.max(1, player.lap)}<small>/${TRACK_M2.laps}</small>`;
       el("hudPos").innerHTML = `${race.positionOf(player)}<small>/${race.racers.length}</small>`;
       el("hudTime").textContent = fmt(race.curLapTime(player, now));
