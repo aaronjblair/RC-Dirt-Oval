@@ -5,6 +5,8 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody";
 import { PhysicsShapeMesh } from "@babylonjs/core/Physics/v2/physicsShape";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
@@ -62,6 +64,42 @@ export class OvalTrack {
     this.buildWalls(shadow);
     this.buildStartFinish();
     this.buildGroove();
+    this.buildBanners();
+  }
+
+  /** Trackside sponsor banners on the outer fence. */
+  private buildBanners() {
+    const W = this.def.width;
+    const dt = new DynamicTexture("bannerTex", { width: 1024, height: 128 }, this.scene, true);
+    const ctx = dt.getContext() as CanvasRenderingContext2D;
+    const names = ["RCSPRINT", "LOSI", "HOOSIER", "DIRT NATION", "22S", "SPEKTRUM", "TLR", "CLAY CO"];
+    const cols = ["#c0392b", "#2471a3", "#f1c40f", "#27ae60", "#8e44ad", "#d35400", "#16a085", "#2c3e50"];
+    const bw = 1024 / names.length;
+    for (let i = 0; i < names.length; i++) {
+      ctx.fillStyle = cols[i]; ctx.fillRect(i * bw, 0, bw, 128);
+      ctx.fillStyle = "#fff"; ctx.font = "bold 40px Arial Black, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(names[i], i * bw + bw / 2, 70);
+    }
+    dt.update();
+    dt.wrapU = Texture.WRAP_ADDRESSMODE;
+    dt.uScale = Math.round(this.length / 9);
+
+    const path: Vector3[][] = [];
+    for (let i = 0; i <= SAMPLES; i++) {
+      const sm = this.samples[i % SAMPLES];
+      const base = sm.pos.add(sm.outward.scale(W / 2 + 0.5)); base.y = 0.8;
+      const top = base.add(new Vector3(0, 0.95, 0));
+      path.push([base, top]);
+    }
+    const banner = MeshBuilder.CreateRibbon("banners", { pathArray: path, closeArray: true, sideOrientation: Mesh.DOUBLESIDE }, this.scene);
+    const mat = new PBRMaterial("bannerMat", this.scene);
+    mat.albedoTexture = dt;
+    mat.emissiveTexture = dt; mat.emissiveColor = new Color3(0.25, 0.25, 0.25);
+    mat.roughness = 0.7; mat.metallic = 0;
+    banner.material = mat;
+    banner.isPickable = false;
+    banner.freezeWorldMatrix();
   }
 
   /** A darker, polished "blue groove" band rubbered into the racing line. */

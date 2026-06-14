@@ -53,20 +53,62 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
   const roof = MeshBuilder.CreateBox("standRoof", { width: 5.5, height: 0.15, depth: 13 }, scene);
   roof.position.set(standX, standY + 3, 0); roof.material = mat(scene, "roof", new Color3(0.25, 0.25, 0.28), 0.5); cast(roof);
 
-  // --- Grandstands along both straights (outside) ---
+  // --- Crowd: instanced spectators (6 shirt colors, invisible source meshes) ---
+  const shirtColors = [
+    new Color3(0.85, 0.2, 0.2), new Color3(0.2, 0.4, 0.85), new Color3(0.9, 0.8, 0.2),
+    new Color3(0.2, 0.7, 0.4), new Color3(0.85, 0.85, 0.9), new Color3(0.6, 0.3, 0.7),
+  ];
+  const crowdMasters = shirtColors.map((c, i) => {
+    const m = MeshBuilder.CreateBox("fan" + i, { width: 0.28, height: 0.5, depth: 0.28 }, scene);
+    m.material = mat(scene, "fanMat" + i, c, 0.8);
+    m.isVisible = false; // instances still render
+    return m;
+  });
+  let fanN = 0;
+  const seatFan = (x: number, y: number, z: number) => {
+    const inst = crowdMasters[fanN++ % crowdMasters.length].createInstance("f" + fanN);
+    inst.position.set(x + (Math.random() - 0.5) * 0.3, y + 0.35, z);
+  };
+
+  // --- Grandstands along both straights (outside), filled with crowd ---
   const buildGrandstand = (cx: number, faceSign: number) => {
     const tiers = 8;
     for (let t = 0; t < tiers; t++) {
+      const sx = cx + faceSign * (3 + t * 1.4);
       const step = MeshBuilder.CreateBox("gsStep", { width: 2.0, height: 0.6, depth: 40 }, scene);
-      step.position.set(cx + faceSign * (3 + t * 1.4), 0.3 + t * 0.6, 0);
-      step.material = concrete; cast(step);
+      step.position.set(sx, 0.3 + t * 0.6, 0); step.material = concrete; cast(step);
       const seat = MeshBuilder.CreateBox("gsSeat", { width: 1.6, height: 0.25, depth: 40 }, scene);
-      seat.position.set(cx + faceSign * (3 + t * 1.4), 0.65 + t * 0.6, 0);
-      seat.material = t % 2 ? seatA : seatB; cast(seat);
+      seat.position.set(sx, 0.65 + t * 0.6, 0); seat.material = t % 2 ? seatA : seatB; cast(seat);
+      for (let z = -19; z <= 19; z += 1.1) if (Math.random() > 0.25) seatFan(sx, 0.65 + t * 0.6, z);
     }
   };
-  buildGrandstand(outerX + 14, 1); // +x straight, larger set back behind drivers' stand
-  buildGrandstand(-outerX - 6, -1); // -x straight
+  buildGrandstand(outerX + 14, 1);
+  buildGrandstand(-outerX - 6, -1);
+
+  // --- Treeline + low hills around the outfield for backdrop ---
+  const trunkMat = mat(scene, "trunk", new Color3(0.28, 0.2, 0.12), 0.9);
+  const leafMat = mat(scene, "leaf", new Color3(0.18, 0.32, 0.16), 0.9);
+  const trunkMaster = MeshBuilder.CreateCylinder("trunkM", { diameter: 0.5, height: 2, tessellation: 6 }, scene);
+  trunkMaster.material = trunkMat; trunkMaster.isVisible = false;
+  const leafMaster = MeshBuilder.CreateCylinder("leafM", { diameterTop: 0, diameterBottom: 3.2, height: 5, tessellation: 7 }, scene);
+  leafMaster.material = leafMat; leafMaster.isVisible = false;
+  const rad = Math.max(L, R) + 55;
+  for (let a = 0; a < Math.PI * 2; a += 0.16) {
+    const r = rad + (Math.random() - 0.5) * 18;
+    const x = Math.cos(a) * r * 0.9, z = Math.sin(a) * r * 1.2;
+    const tr = trunkMaster.createInstance("tr"); tr.position.set(x, 1, z);
+    const lf = leafMaster.createInstance("lf"); lf.position.set(x, 4, z);
+    const s = 0.7 + Math.random() * 0.8; lf.scaling.setAll(s);
+  }
+  const hillMat = mat(scene, "hill", new Color3(0.22, 0.3, 0.2), 1.0);
+  const hillMaster = MeshBuilder.CreateSphere("hillM", { diameter: 1, segments: 8 }, scene);
+  hillMaster.material = hillMat; hillMaster.isVisible = false;
+  for (let a = 0; a < Math.PI * 2; a += 0.5) {
+    const r = rad + 60;
+    const h = hillMaster.createInstance("hill");
+    h.position.set(Math.cos(a) * r, -2, Math.sin(a) * r * 1.3);
+    h.scaling.set(40 + Math.random() * 30, 12 + Math.random() * 8, 40 + Math.random() * 30);
+  }
 
   // --- Light towers at the 4 corners ---
   const towerAt = (x: number, z: number) => {
