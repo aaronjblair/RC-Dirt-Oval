@@ -41,6 +41,7 @@ export class Field {
   readonly player: BuiltCar;
   readonly surface: SurfaceModel;
   private wallLimit: number;
+  private dirtTint: Color3;
 
   constructor(
     scene: Scene,
@@ -53,6 +54,8 @@ export class Field {
   ) {
     this.wallLimit = def.width / 2 - 0.7;
     this.surface = new SurfaceModel(def);
+    // Dust takes on the track's dirt colour (lifted toward a dry, dusty tone).
+    this.dirtTint = Color3.Lerp(def.dirtColor, new Color3(0.62, 0.5, 0.38), 0.45);
     const dustTex = makeDustTexture(scene);
     const n = Math.min(def.fieldSize, PALETTE.length);
     for (let i = 0; i < n; i++) {
@@ -80,16 +83,20 @@ export class Field {
     const node = new TransformNode("dustE" + i, scene);
     node.parent = root;
     node.position.set(0, -0.1, -1.0);
-    const ps = new ParticleSystem("dust" + i, 70, scene);
+    const ps = new ParticleSystem("dust" + i, 90, scene);
     ps.particleTexture = tex;
+    // Alpha blend (NOT additive) so dust reads as opaque kicked-up dirt rather
+    // than glowing embers — especially important under the night-race lights.
+    ps.blendMode = ParticleSystem.BLENDMODE_STANDARD;
     ps.emitter = node as any;
     ps.minEmitBox = new Vector3(-0.4, 0, -0.1);
     ps.maxEmitBox = new Vector3(0.4, 0.2, 0.1);
-    ps.color1 = new Color4(0.5, 0.36, 0.24, 0.5);
-    ps.color2 = new Color4(0.34, 0.24, 0.16, 0.4);
-    ps.colorDead = new Color4(0.34, 0.24, 0.16, 0);
-    ps.minSize = 0.3; ps.maxSize = 1.2;
-    ps.minLifeTime = 0.3; ps.maxLifeTime = 0.8;
+    const dc = this.dirtTint;
+    ps.color1 = new Color4(dc.r * 1.15, dc.g * 1.15, dc.b * 1.15, 0.55);
+    ps.color2 = new Color4(dc.r * 0.8, dc.g * 0.8, dc.b * 0.8, 0.4);
+    ps.colorDead = new Color4(dc.r * 0.8, dc.g * 0.8, dc.b * 0.8, 0);
+    ps.minSize = 0.35; ps.maxSize = 1.4;
+    ps.minLifeTime = 0.4; ps.maxLifeTime = 1.0;
     ps.emitRate = 0;
     ps.gravity = new Vector3(0, -2.5, 0);
     ps.direction1 = new Vector3(-0.6, 0.6, -1.5);

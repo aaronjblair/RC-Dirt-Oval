@@ -42,9 +42,15 @@ async function boot() {
   const scene = new Scene(engine);
   const plugin = await initPhysics(scene);
 
+  // --- Career round selection (needed up front so night lighting matches the track) ---
+  const careerTracks = generateCareer();
+  const career = loadCareer();
+  const round = Math.min(career.round, careerTracks.length - 1);
+  const def = careerTracks[round];
+
   const cam = new DriverStandCamera(scene, canvas);
   scene.activeCamera = cam.camera;
-  const env = setupEnvironment(scene, cam.camera);
+  const env = setupEnvironment(scene, cam.camera, def.night);
 
   // Aerial / spectator camera (toggle with C) — high view of the whole oval
   const aerialCam = new UniversalCamera("aerial", new Vector3(0, 105, -55), scene);
@@ -57,10 +63,11 @@ async function boot() {
 
   const sun = new DirectionalLight("sun", SUN_DIR, scene);
   sun.position = SUN_DIR.scale(-90);
-  sun.intensity = 3.4;
+  sun.intensity = def.night ? 0.25 : 3.4; // moonlight only at night; towers carry the scene
+  if (def.night) sun.diffuse = new Color3(0.5, 0.6, 0.9);
   const ambient = new HemisphericLight("ambient", new Vector3(0, 1, 0), scene);
-  ambient.intensity = 0.3;
-  ambient.groundColor = new Color3(0.4, 0.32, 0.24);
+  ambient.intensity = def.night ? 0.14 : 0.3;
+  ambient.groundColor = def.night ? new Color3(0.06, 0.06, 0.1) : new Color3(0.4, 0.32, 0.24);
 
   const shadow = new ShadowGenerator(1024, sun);
   shadow.useBlurExponentialShadowMap = true;
@@ -68,15 +75,9 @@ async function boot() {
   shadow.darkness = 0.4;
   shadow.bias = 0.0018;
 
-  // --- Career round selection ---
-  const careerTracks = generateCareer();
-  const career = loadCareer();
-  const round = Math.min(career.round, careerTracks.length - 1);
-  const def = careerTracks[round];
-
   // --- Build the round ---
   const track = new OvalTrack(scene, plugin, shadow, def);
-  const scenery = buildScenery(scene, track, shadow);
+  const scenery = buildScenery(scene, track, shadow, def.night);
   cam.setStand(scenery.standPosition);
 
   const setup = loadSetup();
@@ -111,15 +112,21 @@ async function boot() {
     const order = race.racers.map((r) => r.name);
     const gained = order.map((_, i) => POINTS[i] ?? 0);
     awardPoints(career, order);
-    career.unlocked = Math.max(career.unlocked, Math.min(round + 1, careerTracks.length - 1));
+    const finishPos = race.positionOf(player);
+    const canAdvance = finishPos <= 3; // podium-or-better unlocks the next round
+    if (canAdvance) {
+      career.unlocked = Math.max(career.unlocked, Math.min(round + 1, careerTracks.length - 1));
+    }
     saveCareer(career);
     const isFinale = round >= careerTracks.length - 1;
     const champ = standings(career);
     Screens.results({
-      title: `${def.name} — Finished P${race.positionOf(player)}`,
+      title: `${def.name} — Finished P${finishPos}`,
       order: order.map((name, i) => ({ name, gained: gained[i] })),
       champ,
       isFinale,
+      canAdvance,
+      finishPos,
       champion: champ[0]?.name,
       onNext: () => { career.round = Math.min(round + 1, careerTracks.length - 1); saveCareer(career); location.reload(); },
       onReplay: () => location.reload(),

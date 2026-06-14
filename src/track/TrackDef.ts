@@ -16,6 +16,7 @@ export interface TrackDef {
   laps: number;
   dirtColor: Color3;
   difficulty: number; // 1..15
+  night: boolean; // run under the lights with a dark sky
 }
 
 /** Tier-1 practice oval used through M2–M4. */
@@ -34,4 +35,5 @@ export const TRACK_M2: TrackDef = {
   laps: 15,
   dirtColor: new Color3(0.42, 0.26, 0.17),
   difficulty: 1,
+  night: false,
 };

@@ -1,61 +1,38 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code working in this repo.
 
 ## What this is
+RCSprint — a browser 3D 1/10-scale dirt-oval RC sprint car game modeled on the **Team Losi 22S Sprint**. Stack: **Babylon.js 7 + Havok (WASM) + Vite + TypeScript**. Driver-stand camera, sim-leaning physics, 15-track career.
 
-RCSprint is a browser 3D **1/10-scale dirt-oval RC sprint car racing game** modeled on the real **Team Losi 22S Sprint** (TLR 22 platform). Stack: **Babylon.js 7 + Havok (WASM) + Vite + TypeScript**, no game engine install. Driver-stand camera, sim-leaning physics, a 15-track career/championship.
-
-## Project goals and rules
-
-- **This is meant to be shared.** The target is a polished game that can be handed to other people and "just run." Treat the production build (`npm run build` -> `dist/`) as a real deliverable: it must build clean and run from a static host with no dev tooling. Prefer self-contained assets (procedural or bundled under `public/`) over anything that needs a local server-side dependency or manual setup, so the `dist/` folder is the whole game.
-- **All cars must look picture-perfect.** Every car in the field — player and AI alike — has to read as a clean, correct winged sprint car at all times: four tires mounted at the corners, wing on, body/livery intact, no missing/floating/clipping parts, no placeholder geometry. This is a hard visual bar, not a nice-to-have. When you touch car building (`src/car/Car.ts`), the vehicle visuals (`RaycastVehicle.placeWheels`), or anything that spawns or positions cars, **verify the result on screen** (screenshot the full grid, not just the player car) before considering it done.
+## Hard rules
+- **It ships.** `npm run build` → `dist/` must build clean and run from any static host. Prefer self-contained/procedural assets (or files under `public/`); no server-side dependencies.
+- **All cars must look picture-perfect** — every car (player and AI) reads as a clean winged sprint car: four corner tires, wing on, body/livery intact, nothing missing/floating/clipping. When you touch car building (`src/car/Car.ts`), wheel placement (`RaycastVehicle.placeWheels`), or spawning, **screenshot the full grid** and verify before calling it done.
+- **Verify visual/physics changes on screen** (screenshot or read sim state), don't just describe them.
 
 ## Commands
-
 ```
 npm install
-npm run dev       # Vite dev server at http://127.0.0.1:5173 (host is pinned to 127.0.0.1)
-npm run build     # tsc --noEmit (typecheck) then vite build -> dist/
-npm run preview   # serve the production build
+npm run dev      # Vite dev server at http://127.0.0.1:5173
+npm run build    # tsc --noEmit (strict) then vite build -> dist/
+npm run preview  # serve the production build
 ```
+No test runner / linter. `npm run build` is the only gate — `tsconfig` is strict (`noUnusedLocals/Parameters/noImplicitReturns`), so an unused symbol fails it. `npx tsc --noEmit` for a fast typecheck.
 
-There is **no test runner and no linter** configured. `npm run build` is the only gate — it runs `tsc --noEmit` first, and `tsconfig.json` is strict (`noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`), so an unused import or variable fails the build. Run `npx tsc --noEmit` for a fast typecheck without bundling.
-
-In-game controls: arrows/WASD drive, R resets the car, C toggles aerial camera, G opens the garage/setup panel. Gamepad is primary when present (RT/LT triggers = throttle/brake).
+In-game: arrows/WASD drive, R reset, C aerial camera, G garage/setup. Gamepad/yoke+pedals primary when present.
 
 ## Architecture
+- `src/main.ts` — single entry point + game-flow state machine (`prerace → racing → finished`); boots engine, loads career round, builds track/field, runs the fixed-timestep loop (`FIXED = 1/60`, ≤6 catch-up steps).
+- **The vehicle is custom and kinematic — NOT a Havok body.** `src/physics/RaycastVehicle.ts` integrates its own velocity (slip/friction-circle tire model), yaw, and raycasts the ground for ride height + banking. Havok (`src/physics/PhysicsWorld.ts`) is used **only** for static track collision and wheel rays. Do not turn the car into a Havok rigid body — that path was abandoned (applyForce desynced velocity from the mesh). Tune via `VehicleConfig`/`DEFAULT_CONFIG` and the slip/grip math.
+- Car-to-car contact and wall limits are **positional**, not physics — `src/race/Field.ts` (`resolveContacts`, `wallLimit`), which also owns surface grip, tire wear, and dust for the whole field.
+- Tracks are data (`src/track/TrackDef.ts`); `OvalTrack` builds a banked oval from the numbers; `src/track/tracks.ts` `generateCareer()` produces the 15 rounds (incl. night rounds 8/12/15). Career save in `src/career/Career.ts` (localStorage), car setup in `src/car/CarSetup.ts`.
+- Rendering: Babylon imported **à la carte** with the needed **side-effect imports** (materials, shadow/physics components, prepass+geometryBuffer for SSAO2). `src/core/Environment.ts` sets IBL/ACES/bloom/SSAO/SkyMaterial (day + night). Dust/dirt are procedural canvas textures (`src/core/Textures.ts`).
 
-`src/main.ts` is the single entry point and game-flow state machine (`prerace -> racing -> finished`). It boots the engine, loads the career round, builds the track/field, and runs the render loop. There is no router or framework — everything is wired up imperatively in `boot()`.
-
-### The vehicle is custom and kinematic — this is the core design decision
-
-The car is **NOT a Havok dynamic/rigid body**. `src/physics/RaycastVehicle.ts` integrates its own planar velocity (a slip-based tire model with a friction circle), its own yaw (bicycle model + slip oversteer), and raycasts the ground each step for ride height and banking alignment. Havok (`src/physics/PhysicsWorld.ts`) is used **only** for static track collision and those wheel/ground raycasts — never to move a car.
-
-Why: Havok v2 `applyForce` on a dynamic body desynced velocity from the mesh (position pinned while velocity integrated). Do not try to "fix" the vehicle by making it a Havok rigid body — that path was deliberately abandoned. Tune behavior through `VehicleConfig` (`DEFAULT_CONFIG`) and the slip/grip math instead.
-
-Collision filter groups (`GROUP_GROUND=1`, `GROUP_CAR=2`) keep wheel rays hitting only the track. Car-to-car contact and wall limits are NOT physics — they are resolved positionally in `src/race/Field.ts` (`resolveContacts`, `wallLimit`), which also owns surface grip, tire wear, and dust particles for the whole field.
-
-### Data flow per frame
-
-`main.ts` uses a **fixed-timestep accumulator** (`FIXED = 1/60`, up to 6 catch-up steps/frame) so the sim runs at real-world speed even when FPS dips. Each physics step calls `Field.update(dt, playerInput, raceFraction)`, which advances the player vehicle, each `AIDriver` (`src/ai/AIDriver.ts`), the `SurfaceModel` (grip evolving over the race), tire wear, walls, and contacts. `RaceManager` (`src/race/RaceManager.ts`) tracks laps/positions/timing off the track centerline.
-
-### Track and career are data-driven
-
-A track is a `TrackDef` (`src/track/TrackDef.ts`): corner radius, straight length, banking, grip + falloff, AI skill, field size, laps, etc. `OvalTrack` (`src/track/OvalTrack.ts`) procedurally builds a banked stadium oval (2 straights + 2 180° turns, counter-clockwise) from those numbers, and exposes centerline helpers (`project`, `gridPose`) used by lap timing, AI, and the camera. `src/track/tracks.ts` `generateCareer()` produces the 15 progressively harder ovals. Career standings/points/save-load live in `src/career/Career.ts` (localStorage); player car setup in `src/car/CarSetup.ts` (also localStorage, applied via `applySetup`).
-
-### Rendering
-
-Babylon is imported **à la carte** (e.g. `@babylonjs/core/Meshes/mesh`), not from the barrel, to keep the bundle small — match this style and remember the **side-effect imports** (standard/PBR materials, shadow/physics scene components, prepass + geometryBuffer for SSAO2). `src/core/Environment.ts` sets up IBL (.env in `public/env/`), ACES tonemap, bloom, SSAO, and the SkyMaterial. Dirt/dust textures are procedural canvas textures in `src/core/Textures.ts`.
-
-## Gotchas (these cost real time during the build)
-
-- **Vite's watcher crashes (`EBUSY`) on writes into `public/`** while the dev server runs. Stop the dev server before writing/downloading assets into `public/`, then restart.
-- **Headless Playwright renders at ~1–5 fps**, so the per-frame `dt` clamp makes the sim run in slow motion — timing assertions through the render loop are misleading. To verify physics/laps, step the sim **synchronously at fixed dt** in `browser_evaluate` (a sync for-loop blocks the render loop, so no interference) and read internal state (`vehicle.heading`, `vehicle.position`) — NOT `mesh.getDirection()`, whose world matrix is stale until a real render frame. `main.ts` exposes `window.__field`, `__track`, `__race` for this.
-- **A Logitech Flight Yoke + CH Pro Pedals are connected** and show up as gamepads; a held yoke button can hijack keyboard input. Input only switches to the pad on throttle/brake/button press. For deterministic tests, override `navigator.getGamepads = () => []`.
+## Gotchas (cost real time)
+- **Vite watcher crashes (`EBUSY`) on writes into `public/`** while dev server runs — stop it before writing assets there, then restart.
+- **Headless Playwright renders at ~1–5 fps**, so the `dt` clamp slows the sim — timing assertions via the render loop mislead. Step the sim **synchronously at fixed dt** in `browser_evaluate` and read internal state (`vehicle.heading`, `vehicle.position`), not `mesh.getDirection()` (stale until a render frame). `main.ts` exposes `window.__field`, `__track`, `__race`.
+- A **Logitech Flight Yoke + CH Pro Pedals** show up as gamepads; a held button can hijack keyboard. Input only switches to the rig on actual input. For deterministic tests, override `navigator.getGamepads = () => []`.
+- Babylon `ParticleSystem` defaults to **additive blend** — dust looked like glowing embers until set to `BLENDMODE_STANDARD`.
+- **Ground moiré** at grazing angles = over-tiled dirt textures; use `anisotropicFilteringLevel = 16`, keep tiling modest, lower `bumpTexture.level`.
 - `Matrix.InvertToRef` is not static — use `matrix.invertToRef(out)`.
-- The camera `maxZ` must stay above the skybox size or the sky clips to black.
-
-## Verifying changes
-
-The user judges on look and feel — when a change is visual or physical, confirm it by running the app and capturing a screenshot or reading sim state, not by describing the intended result.
+- Camera `maxZ` must stay above the skybox size or the sky clips to black.

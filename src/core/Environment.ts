@@ -25,36 +25,36 @@ export interface EnvHandles {
  * reflections, ACES tone mapping, bloom, SSAO grounding, FXAA + sharpen, and a
  * light dusty haze.
  */
-export function setupEnvironment(scene: Scene, camera: Camera): EnvHandles {
+export function setupEnvironment(scene: Scene, camera: Camera, night = false): EnvHandles {
   // --- IBL for reflections only (not used as the visible sky) ---
   const env = CubeTexture.CreateFromPrefilteredData("/env/environment.env", scene);
   env.gammaSpace = false;
   scene.environmentTexture = env;
-  scene.environmentIntensity = 0.5;
+  scene.environmentIntensity = night ? 0.12 : 0.5;
 
   // --- Atmospheric sky dome (inclination/azimuth config) ---
   const sky = new SkyMaterial("skyMat", scene);
   sky.backFaceCulling = false;
-  sky.turbidity = 8;
-  sky.luminance = 1.0;
-  sky.rayleigh = 2.0;
+  sky.turbidity = night ? 18 : 8;
+  sky.luminance = night ? 0.12 : 1.0;
+  sky.rayleigh = night ? 0.5 : 2.0;
   sky.mieCoefficient = 0.005;
   sky.mieDirectionalG = 0.82;
   sky.useSunPosition = false;
-  sky.inclination = 0.35; // sun elevation (0 = zenith .. 0.5 = horizon)
+  sky.inclination = night ? 0.49 : 0.35; // sun below horizon at night
   sky.azimuth = 0.27;
   const skybox = MeshBuilder.CreateBox("skyBox", { size: 2000 }, scene);
   skybox.material = sky;
   skybox.infiniteDistance = true;
   skybox.isPickable = false;
 
-  scene.clearColor = new Color4(0.5, 0.65, 0.85, 1);
-  scene.ambientColor = new Color3(0.45, 0.45, 0.45);
+  scene.clearColor = night ? new Color4(0.03, 0.04, 0.07, 1) : new Color4(0.5, 0.65, 0.85, 1);
+  scene.ambientColor = night ? new Color3(0.1, 0.11, 0.16) : new Color3(0.45, 0.45, 0.45);
 
-  // --- Light dust haze toward horizon ---
+  // --- Light dust haze toward horizon (cool/dark at night) ---
   scene.fogMode = Scene.FOGMODE_EXP2;
-  scene.fogColor = new Color3(0.78, 0.82, 0.88);
-  scene.fogDensity = 0.0015;
+  scene.fogColor = night ? new Color3(0.05, 0.06, 0.1) : new Color3(0.78, 0.82, 0.88);
+  scene.fogDensity = night ? 0.0026 : 0.0015;
 
   // --- Post pipeline ---
   const pipeline = new DefaultRenderingPipeline("default", true, scene, [camera]);

@@ -1,15 +1,21 @@
+# dependencies / build output
 node_modules/
 dist/
 .vite/
-*.local
-.DS_Store
-.playwright-mcp/
-m0-*.png
-m1-*.png
-*-overhaul-*.png
-m2-*.png
-m4-*.png
-m5-*.png
-m6-*.png
-show-*.png
 RCSprint-web.zip
+
+# local env / OS
+*.local
+.env
+.DS_Store
+Thumbs.db
+
+# tooling
+.playwright-mcp/
+.claude/*.lock
+.claude/scheduled_tasks.lock
+
+# verification screenshots & reference images (root only — keeps public/**/*.jpg)
+/*.png
+/*.jpeg
+/ref-*.jpg

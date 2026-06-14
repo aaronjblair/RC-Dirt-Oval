@@ -66,7 +66,7 @@ export const Screens = {
 
   results(opts: {
     title: string; order: { name: string; gained: number }[]; champ: Standing[];
-    isFinale: boolean; champion?: string;
+    isFinale: boolean; canAdvance: boolean; finishPos: number; champion?: string;
     onNext: () => void; onReplay: () => void; onReset: () => void;
   }): HTMLDivElement {
     const orderRows = opts.order.map((r, i) =>
@@ -78,14 +78,20 @@ export const Screens = {
       ? `<div style="margin:10px 0;padding:10px;background:#1c2733;border-radius:8px;text-align:center">
            <div style="font-size:12px;color:#9aa6b3">SEASON CHAMPION</div>
            <div style="font-size:20px;font-weight:800;color:#ffd34d">${opts.champion}</div></div>` : "";
+    // Podium-or-better unlocks the next round; otherwise the driver must replay.
+    const lockNote = (!opts.isFinale && !opts.canAdvance)
+      ? `<div style="margin:8px 0;padding:9px 11px;background:#2a1c1c;border:1px solid #5a2b2b;border-radius:8px;font-size:12px;color:#f1c0c0">
+           Finished <b>P${opts.finishPos}</b> — you need a <b>top-3 podium</b> to advance. Replay the round to qualify for the next track.</div>`
+      : "";
     const p = panel(
       `<div style="font-size:22px;font-weight:800;color:#ffd34d;margin-bottom:4px">${opts.title}</div>
        ${finale}
+       ${lockNote}
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:6px">FINISH &middot; POINTS</div>
        <table style="width:100%;border-collapse:collapse;font-size:13px;margin:6px 0">${orderRows}</table>
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:8px">CHAMPIONSHIP</div>
        ${standingsTable(opts.champ)}
-       ${opts.isFinale ? "" : `<button id="scNext" style="${BTN}">NEXT ROUND</button>`}
+       ${(opts.isFinale || !opts.canAdvance) ? "" : `<button id="scNext" style="${BTN}">NEXT ROUND</button>`}
        <button id="scReplay" style="${BTN2}">REPLAY ROUND</button>
        <button id="scReset" style="${BTN2}">RESET CAREER</button>`
     );

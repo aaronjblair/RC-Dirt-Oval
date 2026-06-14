@@ -19,7 +19,7 @@ export interface SceneryHandles {
 }
 
 /** Drivers' stand, grandstands, light towers and a start/finish gantry. */
-export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGenerator | null): SceneryHandles {
+export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGenerator | null, night = false): SceneryHandles {
   const R = track.def.cornerRadius;
   const L = track.def.straightLength;
   const W = track.def.width;
@@ -30,7 +30,7 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
   const seatA = mat(scene, "seatA", new Color3(0.2, 0.3, 0.6));
   const seatB = mat(scene, "seatB", new Color3(0.7, 0.2, 0.2));
   const lampMat = mat(scene, "lamp", new Color3(1, 0.97, 0.85), 0.3, 0.2);
-  lampMat.emissiveColor = new Color3(1, 0.95, 0.8);
+  lampMat.emissiveColor = night ? new Color3(2.2, 2.1, 1.7) : new Color3(1, 0.95, 0.8);
 
   const cast = (m: Mesh) => {
     if (shadow) shadow.addShadowCaster(m);
@@ -120,8 +120,10 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
     bank.material = lampMat;
     for (let i = -1; i <= 1; i++) {
       const pl = new PointLight("towerL" + x + z + i, new Vector3(x + i * 1.2, 15.5, z), scene);
-      pl.intensity = 0.0; // off by day; used for night tracks later
-      pl.range = 60;
+      pl.intensity = night ? 420 : 0.0; // lit only at night (PBR falloff over ~90m)
+      pl.range = 110;
+      pl.diffuse = new Color3(1, 0.96, 0.85);
+      pl.specular = new Color3(1, 0.97, 0.88);
     }
   };
   const tx = outerX + 10, tz = L / 2 + 6;

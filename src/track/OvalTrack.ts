@@ -84,6 +84,7 @@ export class OvalTrack {
     dt.update();
     dt.wrapU = Texture.WRAP_ADDRESSMODE;
     dt.uScale = Math.round(this.length / 9);
+    dt.anisotropicFilteringLevel = 16; // banner wall is viewed at a grazing angle
 
     const path: Vector3[][] = [];
     for (let i = 0; i <= SAMPLES; i++) {
@@ -218,7 +219,7 @@ export class OvalTrack {
     vd.applyToMesh(mesh);
 
     // packed, darker, rubbered-in racing surface
-    const mat = makeDirtPBR(this.scene, "trackMat", 3, Math.max(8, Math.round(this.length / 9)), new Color3(0.5, 0.32, 0.22));
+    const mat = makeDirtPBR(this.scene, "trackMat", 3, Math.max(6, Math.round(this.length / 18)), new Color3(0.5, 0.32, 0.22));
     mat.roughness = 0.8;
     mesh.material = mat;
     mesh.receiveShadows = true;
@@ -238,7 +239,7 @@ export class OvalTrack {
     const ground = MeshBuilder.CreateGround("infield", { width: 400, height: 400, subdivisions: 4 }, this.scene);
     ground.position.y = -0.05;
     // reddish clay infield/outfield, tinted from the track's dirt color
-    const mat = makeDirtPBR(this.scene, "infieldMat", 90, 90, this.def.dirtColor.scale(1.15));
+    const mat = makeDirtPBR(this.scene, "infieldMat", 36, 36, this.def.dirtColor.scale(1.15));
     ground.material = mat;
     ground.receiveShadows = true;
     ground.isPickable = false;

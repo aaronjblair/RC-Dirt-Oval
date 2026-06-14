@@ -1,0 +1,123 @@
+============================================================
+RCSprint — BUILD-FROM-SCRATCH PROMPT
+Paste this whole file to an AI coding agent to rebuild the game.
+============================================================
+
+GOAL
+Build a polished, shareable browser 3D game: a 1/10-scale DIRT-OVAL RC SPRINT CAR
+racing game modeled on the real Team Losi 22S Sprint (TLR 22 platform). It must be
+a real deliverable — `npm run build` produces a static `dist/` folder that runs from
+any static host with no dev tooling and no server-side dependencies. Work in a loop:
+each milestone ends in a runnable build that you VERIFY on screen (screenshot or read
+sim state) before moving on.
+
+TECH STACK (no game engine install)
+- Babylon.js 7 (@babylonjs/core, @babylonjs/materials) imported À LA CARTE
+  (e.g. "@babylonjs/core/Meshes/mesh"), not from the barrel, to keep the bundle small.
+  Remember the SIDE-EFFECT imports: standard/PBR materials, shadow + physics scene
+  components, and prepass + geometryBuffer for SSAO2.
+- Havok physics via @babylonjs/havok (WASM), async-initialized before the first step.
+- Vite 5 + TypeScript 5, strict (noUnusedLocals, noUnusedParameters, noImplicitReturns).
+- No test runner, no linter. `npm run build` (tsc --noEmit then vite build) is the gate.
+- Persistence in localStorage. Audio via Web Audio.
+
+CORE DESIGN DECISION — THE VEHICLE IS CUSTOM AND KINEMATIC (NOT a Havok body)
+Implement a custom RaycastVehicle that integrates its OWN planar velocity (slip-based
+tire model with a friction circle), its OWN yaw (bicycle model + slip oversteer), and
+RAYCASTS the ground each step for ride height and banking alignment. Use Havok ONLY for
+static track collision and the wheel/ground raycasts — never to move a car. (Reason:
+Havok v2 applyForce on a dynamic body desyncs velocity from the mesh; do not go that
+route.) Tune handling through a VehicleConfig/DEFAULT_CONFIG and the slip/grip math.
+Car-to-car contact and wall limits are resolved POSITIONALLY (not physics) in a Field
+class that also owns surface grip, tire wear, and dust for the whole field.
+
+GAME SHAPE
+- Driver-stand camera: a fixed elevated trackside RC vantage that tracks the player.
+  Toggle an aerial overview with C.
+- Game-flow state machine in a single entry point (main.ts): prerace -> racing -> finished.
+- Fixed-timestep accumulator: FIXED = 1/60, up to 6 catch-up steps per frame, so the sim
+  runs at real-world speed when FPS dips. Each step: Field.update(dt, input, raceFraction).
+- HUD: lap, position, lap time, best, speed (mph-scaled), tire %, track state, minimap.
+
+TRACKS (data-driven)
+- A TrackDef holds: cornerRadius, straightLength, width, banking (radians), baseGrip,
+  gripFalloff (per lap), rutIntensity, aiSkill, fieldSize, laps, dirtColor, difficulty,
+  night (bool).
+- An OvalTrack procedurally builds a COUNTER-CLOCKWISE banked stadium oval (2 straights +
+  2 180-degree turns) from those numbers, plus walls, infield/outfield ground, banners,
+  groove (rubbered racing line), start/finish, and centerline helpers project()/gridPose().
+- generateCareer() returns 15 progressively harder ovals: corner radius shrinks, straights
+  lengthen, width narrows, grip drops + falls off faster, ruts and AI skill rise, laps and
+  field grow. Each round gets a DISTINCT dirt color. Banking ramps from flat early ovals to
+  high-banks (~0.20-0.24 rad) late. NIGHT ROUNDS: 8, 12, and 15.
+
+CAREER / CHAMPIONSHIP
+- Points by finish (25,20,16,13,11,9,7,5,4,3,2,1). Standings, save/load in localStorage.
+- PODIUM GATING: only finishing TOP-3 unlocks the next round. Below podium, the results
+  screen shows a "need a top-3 podium to advance — replay to qualify" notice and hides the
+  NEXT ROUND button. The finale shows the season champion.
+
+AI
+- 8-10 AI drivers per field following the racing line with per-track difficulty + variance
+  and basic avoidance. Sensible, varied finishing order; mostly clean pack racing.
+
+CARS — must look PICTURE-PERFECT (hard visual bar)
+Every car (player and AI) must read as a clean, correct WINGED sprint car at all times:
+four tires at the corners, top wing + front wing on, body/livery intact, driver helmet,
+roll cage, no missing/floating/clipping parts. Build procedurally (Car.ts):
+- Body tub, tail, nose; tall rectangular TOP WING with side dive plates carrying the car
+  number + sponsor text and a wicker bill; smaller front wing with endplates.
+- Staggered wheels with a big right-rear; chrome rims; Hoosier-style lettered tire sidewalls.
+- PBR paint with clearcoat; per-side liveries drawn on canvas DynamicTextures (mirror text
+  for the left side). Distinct color + number per grid slot.
+After ANY change to car building / wheel placement / spawning, SCREENSHOT THE FULL GRID and
+verify before calling it done.
+
+INPUT (gamepad primary, keyboard fallback, + sim rig)
+- Keyboard: arrows/WASD drive, R reset.
+- Standard gamepad: axis0 steer, RT/LT (buttons 7/6) throttle/brake.
+- SIM RIG (Logitech Flight Yoke + CH Pro Pedals show up as gamepads): SELF-CALIBRATING —
+  learn each device's resting axis values, classify a centered-rest axis as steering and
+  extreme-rest axes as pedals (polarity auto-detected). Keys K = recalibrate, J = swap
+  throttle/brake. Only switch away from keyboard once the rig is actually moved (an idle
+  yoke must not hijack the keys).
+
+RENDERING / REALISM
+- Environment.ts: prefiltered IBL (.env in public/env), ACES tonemapping, bloom, SSAO2,
+  SkyMaterial dome, light dust fog. Provide a NIGHT configuration: dark sky/fog, low IBL,
+  dim moonlight sun + ambient, and lit corner light towers (PointLights, intensity ~420,
+  range ~110) with boosted emissive lamp banks. Select the career round BEFORE setting up
+  the environment so lighting matches the track.
+- Dust: a ParticleSystem per car. Babylon defaults to ADDITIVE blend (looks like glowing
+  embers) — set BLENDMODE_STANDARD so it reads as opaque kicked-up dirt; tint it from the
+  track's dirtColor.
+- Avoid ground MOIRÉ at grazing angles: set anisotropicFilteringLevel = 16 on dirt textures,
+  keep texture tiling modest (don't tile a 400m ground 90x), and keep normal-map level low
+  (~0.85). Camera maxZ must exceed the skybox size or the sky clips to black.
+
+VERIFICATION (the user judges on look and feel)
+- Run the dev server and use a headless browser to screenshot and read the console (zero
+  errors). NOTE headless renders at ~1-5 fps, so the dt clamp slows the sim — to test
+  physics/laps, step the sim SYNCHRONOUSLY at fixed dt in page script and read internal
+  state (vehicle.heading, vehicle.position), not mesh.getDirection() (stale until a render
+  frame). Expose window.__field, __track, __race for this.
+- Per milestone: screenshot the scene, confirm the behavior, check FPS budget (target ~60,
+  acceptable 40+ on a laptop dGPU), screenshot the FULL GRID for car correctness.
+
+MILESTONES (each ends in a verified runnable build)
+M0 scaffold + render (ground, driver-stand cam, lights/shadows, FPS).
+M1 drivable kinematic car (one winged 22S, input, camera tracking, ~25mph-scale top speed).
+M2 one banked oval + lap detection/timing + HUD.
+M3 evolving surface grip + tire wear + car setup wired to physics.
+M4 8-10 AI + RaceManager positions/flags/results.
+M5 15-track career: calendar, points, PODIUM-gated unlocks, save/load.
+M6 polish: audio, minimap, menus/results UX, dust, night rounds, perf; visual realism pass
+   (fix dust blend + ground moiré + night lighting). Verify a full play-through, 0 console
+   errors, stable FPS, picture-perfect grid.
+
+COMMANDS
+  npm install
+  npm run dev      # http://127.0.0.1:5173
+  npm run build    # tsc --noEmit then vite build -> dist/
+  npm run preview  # serve the production build
+============================================================

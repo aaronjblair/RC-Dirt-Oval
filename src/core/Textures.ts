@@ -12,13 +12,14 @@ export function makeDirtPBR(scene: Scene, name: string, uScale: number, vScale: 
     t.wrapU = Texture.WRAP_ADDRESSMODE;
     t.wrapV = Texture.WRAP_ADDRESSMODE;
     t.uScale = uScale; t.vScale = vScale;
+    t.anisotropicFilteringLevel = 16; // kill grazing-angle moiré on the dirt
     return t;
   };
   const m = new PBRMaterial(name, scene);
   m.albedoTexture = mk("color.jpg");
   m.albedoColor = tint; // tints the pale photo toward clay
   m.bumpTexture = mk("normal.jpg");
-  m.bumpTexture.level = 1.5; // pronounce the surface relief
+  m.bumpTexture.level = 0.85; // relief without grazing-angle normal-map sparkle
   m.ambientTexture = mk("ao.jpg");
   m.metallic = 0;
   m.roughness = 0.95;
@@ -92,6 +93,7 @@ export function makeDirtTextures(scene: Scene, tile = 40): { albedo: DynamicText
     t.wrapV = Texture.WRAP_ADDRESSMODE;
     t.uScale = tile;
     t.vScale = tile;
+    t.anisotropicFilteringLevel = 16; // kill grazing-angle moiré on the dirt
   }
   return { albedo, bump };
 }
