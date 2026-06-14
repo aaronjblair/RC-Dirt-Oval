@@ -3,6 +3,7 @@ import type { OvalTrack } from "../track/OvalTrack";
 
 export interface Racer {
   id: string;
+  name: string;
   isPlayer: boolean;
   getPos: () => Vector3;
   lap: number;
@@ -35,9 +36,9 @@ export class RaceManager {
     this.state = { started: false, finished: false, totalLaps };
   }
 
-  add(id: string, isPlayer: boolean, getPos: () => Vector3): Racer {
+  add(id: string, name: string, isPlayer: boolean, getPos: () => Vector3): Racer {
     const r: Racer = {
-      id, isPlayer, getPos,
+      id, name, isPlayer, getPos,
       lap: 0, prevS: 0, passedHalf: false,
       lapStart: 0, bestLap: 0, lastLap: 0, finished: false, progress: 0,
     };

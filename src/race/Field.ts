@@ -6,6 +6,7 @@ import { createCar, type BuiltCar } from "../car/Car";
 import { AIDriver } from "../ai/AIDriver";
 import { SurfaceModel } from "../track/SurfaceModel";
 import { applySetup, DEFAULT_SETUP, type CarSetup } from "../car/CarSetup";
+import { driverName } from "../career/Career";
 import type { OvalTrack } from "../track/OvalTrack";
 import type { TrackDef } from "../track/TrackDef";
 import type { RaceManager } from "./RaceManager";
@@ -63,7 +64,7 @@ export class Field {
         this.ai.push(new AIDriver(car.vehicle, track, skill));
         this.wearRate.push(0.00007);
       }
-      race.add(i === 0 ? "player" : `ai${i}`, i === 0, () => car.vehicle.position);
+      race.add(i === 0 ? "player" : `ai${i}`, driverName(i), i === 0, () => car.vehicle.position);
     }
     this.player = this.cars[0];
   }
