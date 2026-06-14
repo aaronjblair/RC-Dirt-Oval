@@ -10,7 +10,7 @@ import { PhysicsShapeMesh } from "@babylonjs/core/Physics/v2/physicsShape";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
-import { makeDirtTextures } from "../core/Textures";
+import { makeDirtPBR } from "../core/Textures";
 import { GROUP_GROUND } from "../physics/RaycastVehicle";
 import type { TrackDef } from "./TrackDef";
 
@@ -61,6 +61,32 @@ export class OvalTrack {
     this.buildInfieldOutfield(shadow);
     this.buildWalls(shadow);
     this.buildStartFinish();
+    this.buildGroove();
+  }
+
+  /** A darker, polished "blue groove" band rubbered into the racing line. */
+  private buildGroove() {
+    const W = this.def.width;
+    const center = -W * 0.08;
+    const half = W * 0.28;
+    const inner: Vector3[] = [];
+    const outer: Vector3[] = [];
+    for (let i = 0; i <= SAMPLES; i++) {
+      const sm = this.samples[i % SAMPLES];
+      const a = sm.pos.add(sm.outward.scale(center - half)); a.y = 0.02;
+      const b = sm.pos.add(sm.outward.scale(center + half)); b.y = 0.02;
+      inner.push(a); outer.push(b);
+    }
+    const groove = MeshBuilder.CreateRibbon("groove", { pathArray: [inner, outer], closePath: true }, this.scene);
+    const mat = new PBRMaterial("grooveMat", this.scene);
+    mat.albedoColor = new Color3(0.16, 0.12, 0.1);
+    mat.roughness = 0.5; // polished/rubbered-in vs the dusty track
+    mat.metallic = 0;
+    mat.zOffset = -4; // sit cleanly on top of the track surface
+    groove.material = mat;
+    groove.receiveShadows = true;
+    groove.isPickable = false;
+    groove.freezeWorldMatrix();
   }
 
   // --- centerline walk ---
@@ -153,16 +179,9 @@ export class OvalTrack {
     vd.uvs = uvs;
     vd.applyToMesh(mesh);
 
-    const mat = new PBRMaterial("trackMat", this.scene);
-    const tex = makeDirtTextures(this.scene, 1);
-    tex.albedo.uScale = 2; tex.albedo.vScale = 1;
-    tex.bump.uScale = 2; tex.bump.vScale = 1;
-    mat.albedoTexture = tex.albedo;
-    mat.bumpTexture = tex.bump;
-    mat.bumpTexture.level = 0.5;
-    mat.albedoColor = new Color3(0.85, 0.82, 0.8);
-    mat.roughness = 0.82;
-    mat.metallic = 0;
+    // packed, darker, rubbered-in racing surface
+    const mat = makeDirtPBR(this.scene, "trackMat", 3, Math.max(8, Math.round(this.length / 9)), new Color3(0.5, 0.32, 0.22));
+    mat.roughness = 0.8;
     mesh.material = mat;
     mesh.receiveShadows = true;
     mesh.isPickable = false;
@@ -180,14 +199,8 @@ export class OvalTrack {
     void shadow;
     const ground = MeshBuilder.CreateGround("infield", { width: 400, height: 400, subdivisions: 4 }, this.scene);
     ground.position.y = -0.05;
-    const mat = new PBRMaterial("infieldMat", this.scene);
-    const tex = makeDirtTextures(this.scene, 80);
-    mat.albedoTexture = tex.albedo;
-    mat.bumpTexture = tex.bump;
-    mat.bumpTexture.level = 0.4;
-    mat.albedoColor = this.def.dirtColor.scale(1.6);
-    mat.roughness = 0.97;
-    mat.metallic = 0;
+    // reddish clay infield/outfield, tinted from the track's dirt color
+    const mat = makeDirtPBR(this.scene, "infieldMat", 90, 90, this.def.dirtColor.scale(1.15));
     ground.material = mat;
     ground.receiveShadows = true;
     ground.isPickable = false;

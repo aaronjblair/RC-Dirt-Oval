@@ -1,6 +1,29 @@
 import { Scene } from "@babylonjs/core/scene";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
+import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
+import { Color3 } from "@babylonjs/core/Maths/math.color";
+
+/** PBR dirt material from the bundled CC0 photo set (albedo + normal + AO). */
+export function makeDirtPBR(scene: Scene, name: string, uScale: number, vScale: number, tint: Color3): PBRMaterial {
+  const base = "/textures/dirt/";
+  const mk = (file: string) => {
+    const t = new Texture(base + file, scene);
+    t.wrapU = Texture.WRAP_ADDRESSMODE;
+    t.wrapV = Texture.WRAP_ADDRESSMODE;
+    t.uScale = uScale; t.vScale = vScale;
+    return t;
+  };
+  const m = new PBRMaterial(name, scene);
+  m.albedoTexture = mk("color.jpg");
+  m.albedoColor = tint; // tints the pale photo toward clay
+  m.bumpTexture = mk("normal.jpg");
+  m.bumpTexture.level = 1.5; // pronounce the surface relief
+  m.ambientTexture = mk("ao.jpg");
+  m.metallic = 0;
+  m.roughness = 0.95;
+  return m;
+}
 
 /**
  * Procedural, tileable dirt textures drawn on a canvas — no external assets.

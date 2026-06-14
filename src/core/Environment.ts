@@ -30,7 +30,7 @@ export function setupEnvironment(scene: Scene, camera: Camera): EnvHandles {
   const env = CubeTexture.CreateFromPrefilteredData("/env/environment.env", scene);
   env.gammaSpace = false;
   scene.environmentTexture = env;
-  scene.environmentIntensity = 0.75;
+  scene.environmentIntensity = 0.5;
 
   // --- Atmospheric sky dome (inclination/azimuth config) ---
   const sky = new SkyMaterial("skyMat", scene);
@@ -65,8 +65,8 @@ export function setupEnvironment(scene: Scene, camera: Camera): EnvHandles {
   const ip = pipeline.imageProcessing;
   ip.toneMappingEnabled = true;
   ip.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
-  ip.exposure = 1.15;
-  ip.contrast = 1.12;
+  ip.exposure = 1.0;
+  ip.contrast = 1.18;
   ip.vignetteEnabled = true;
   ip.vignetteWeight = 1.1;
   ip.vignetteColor = new Color4(0, 0, 0, 0);
