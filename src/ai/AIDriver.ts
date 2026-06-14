@@ -39,40 +39,52 @@ export class AIDriver {
     let desired = Math.atan2(dir.x, dir.z);
     let alpha = norm(desired - v.heading);
 
-    // corner severity from upcoming curvature (compare headings ahead)
-    const near = this.track.sampleAt(proj.s + 4);
-    const far = this.track.sampleAt(proj.s + 16);
-    const curve = Math.abs(norm(
-      Math.atan2(far.tangent.x, far.tangent.z) - Math.atan2(near.tangent.x, near.tangent.z)
+    // estimate the radius of the corner just ahead from how fast heading turns
+    const arc = 14;
+    const a0 = this.track.sampleAt(proj.s + 3);
+    const a1 = this.track.sampleAt(proj.s + 3 + arc);
+    const dTheta = Math.abs(norm(
+      Math.atan2(a1.tangent.x, a1.tangent.z) - Math.atan2(a0.tangent.x, a0.tangent.z)
     ));
+    const radius = arc / Math.max(0.02, dTheta); // big on straights, ~corner R in turns
+
+    // physics-based corner speed: v = sqrt(mu * g * R), with a skill safety margin
+    const muEff = v.cfg.tireGrip * v.gripMult;
+    const margin = 0.82 + 0.14 * this.skill; // braver drivers carry more
+    const vCorner = Math.sqrt(Math.max(4, muEff * 9.81 * radius)) * margin;
 
     // --- avoid a car right in front ---
     let avoid = 0;
-    let lift = 0;
+    let avoidLift = 0;
     const fwd = new Vector3(Math.sin(v.heading), 0, Math.cos(v.heading));
     for (const o of opponents) {
       if (o === v) continue;
       const rel = o.position.subtract(v.position);
-      const ahead2 = Vector3.Dot(rel, fwd);
+      const aheadDot = Vector3.Dot(rel, fwd);
       const dist = rel.length();
-      if (ahead2 > 0 && dist < 5.5) {
+      if (aheadDot > 0 && dist < 5.0) {
         const side = Vector3.Dot(rel, new Vector3(Math.cos(v.heading), 0, -Math.sin(v.heading)));
-        avoid += (side >= 0 ? -1 : 1) * (1 - dist / 5.5) * 0.6;
-        lift = Math.max(lift, (1 - dist / 5.5) * 0.5);
+        avoid += (side >= 0 ? -1 : 1) * (1 - dist / 5.0) * 0.5;
+        avoidLift = Math.max(avoidLift, (1 - dist / 5.0) * 0.4);
       }
     }
 
-    // small human-like wobble
+    // small human-like wobble (less for skilled drivers)
     this.wobblePhase += dt;
-    const wobble = Math.sin(this.wobblePhase * 1.7) * 0.03 * (1 - this.skill);
+    const wobble = Math.sin(this.wobblePhase * 1.7) * 0.025 * (1 - this.skill);
 
-    const steer = Math.max(-1, Math.min(1, alpha * 1.5 + avoid + wobble));
+    const steer = Math.max(-1, Math.min(1, alpha * 1.6 + avoid + wobble));
 
-    // pace: ease off through curves, scaled by skill
-    const paceCap = 0.8 + 0.2 * this.skill;
-    const cornerLift = Math.min(0.55, curve * 1.3);
-    const throttle = Math.max(0.25, paceCap - cornerLift - lift);
+    // throttle/brake to track the target corner speed (momentum oval style)
+    const paceCap = 0.9 + 0.1 * this.skill;
+    let throttle: number, brake = 0;
+    if (speed > vCorner + 0.4) {
+      throttle = 0;
+      brake = Math.min(1, (speed - vCorner) * 0.6);
+    } else {
+      throttle = Math.max(0.3, paceCap - avoidLift);
+    }
 
-    return { throttle, brake: 0, steer, reset: false, usingGamepad: false };
+    return { throttle, brake, steer, reset: false, usingGamepad: false };
   }
 }
