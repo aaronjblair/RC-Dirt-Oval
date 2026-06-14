@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RCSprint is a browser 3D **1/10-scale dirt-oval RC sprint car racing game** modeled on the real **Team Losi 22S Sprint** (TLR 22 platform). Stack: **Babylon.js 7 + Havok (WASM) + Vite + TypeScript**, no game engine install. Driver-stand camera, sim-leaning physics, a 15-track career/championship.
 
+## Project goals and rules
+
+- **This is meant to be shared.** The target is a polished game that can be handed to other people and "just run." Treat the production build (`npm run build` -> `dist/`) as a real deliverable: it must build clean and run from a static host with no dev tooling. Prefer self-contained assets (procedural or bundled under `public/`) over anything that needs a local server-side dependency or manual setup, so the `dist/` folder is the whole game.
+- **All cars must look picture-perfect.** Every car in the field — player and AI alike — has to read as a clean, correct winged sprint car at all times: four tires mounted at the corners, wing on, body/livery intact, no missing/floating/clipping parts, no placeholder geometry. This is a hard visual bar, not a nice-to-have. When you touch car building (`src/car/Car.ts`), the vehicle visuals (`RaycastVehicle.placeWheels`), or anything that spawns or positions cars, **verify the result on screen** (screenshot the full grid, not just the player car) before considering it done.
+
 ## Commands
 
 ```
