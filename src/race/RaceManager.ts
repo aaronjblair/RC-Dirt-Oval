@@ -95,4 +95,17 @@ export class RaceManager {
     if (!this.state.started || r.lap === 0) return 0;
     return (now - r.lapStart) / 1000;
   }
+
+  /**
+   * Time interval (seconds) to the car directly ahead and behind in the running
+   * order, estimated from the on-track progress gap and a reference speed. null
+   * when the racer is leading / running last.
+   */
+  gapInfo(r: Racer, refSpeed: number): { ahead: number | null; behind: number | null } {
+    const i = this.racers.indexOf(r);
+    const spd = Math.max(4, refSpeed); // avoid blowing up the gap at low speed
+    const ahead = i > 0 ? (this.racers[i - 1].progress - r.progress) / spd : null;
+    const behind = i < this.racers.length - 1 ? (r.progress - this.racers[i + 1].progress) / spd : null;
+    return { ahead, behind };
+  }
 }

@@ -181,10 +181,15 @@ async function boot() {
       el("hudBest").textContent = fmt(player.bestLap);
       minimap.update(field.miniStates());
       const wear = Math.round(field.playerTireWear * 100);
+      const gi = race.gapInfo(player, field.playerVehicle.speed);
+      const gAhead = gi.ahead == null ? "leader" : `-${gi.ahead.toFixed(1)}s`;
+      const gBehind = gi.behind == null ? "—" : `+${gi.behind.toFixed(1)}s`;
+      const last = player.lastLap > 0 ? fmt(player.lastLap) : "--";
       status.innerHTML =
         `<b style="color:#ffd34d">${def.name}</b><br>` +
-        `<b style="color:#ffd34d">TRACK</b> ${field.surface.state}<br>` +
-        `<b style="color:#ffd34d">TIRES</b> ${100 - wear}% &nbsp;<span style="color:#9aa6b3">grip ${field.playerVehicle.gripMult.toFixed(2)}</span><br>` +
+        `<b style="color:#ffd34d">GAP</b> <span style="color:#7fd1ff">&#9650; ${gAhead}</span> &nbsp; <span style="color:#ff9a9a">&#9660; ${gBehind}</span><br>` +
+        `<b style="color:#ffd34d">LAST</b> ${last} &nbsp;<span style="color:#9aa6b3">best ${fmt(player.bestLap)}</span><br>` +
+        `<b style="color:#ffd34d">TRACK</b> ${field.surface.state} &nbsp;<span style="color:#9aa6b3">tires ${100 - wear}%</span><br>` +
         `<span style="color:#9aa6b3">press <b>G</b> garage &middot; <b>C</b> camera</span>`;
     }
   });
