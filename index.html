@@ -25,6 +25,20 @@
         font-size: 15px; color: #ffd34d;
       }
       #title small { display:block; font-weight: 400; font-size: 11px; color: #c8d0da; letter-spacing: 0; }
+      #racehud {
+        position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+        display: flex; gap: 22px; align-items: center;
+        background: rgba(0,0,0,0.4); padding: 8px 20px; border-radius: 10px;
+        font-variant-numeric: tabular-nums;
+      }
+      #racehud .lbl { font-size: 10px; color: #9aa6b3; text-transform: uppercase; letter-spacing: 1px; }
+      #racehud .val { font-size: 20px; font-weight: 700; color: #fff; }
+      #racehud .val small { font-size: 12px; color: #ffd34d; }
+      #speedo {
+        position: absolute; bottom: 16px; right: 20px; text-align: right;
+      }
+      #speedo .n { font-size: 44px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; line-height: 1; }
+      #speedo .u { font-size: 13px; color: #9aa6b3; letter-spacing: 2px; }
       #loading {
         position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
         background: #0a0c10; color: #ffd34d; font-family: system-ui, sans-serif; font-size: 18px; z-index: 10;
@@ -36,6 +50,13 @@
     <div id="hud">
       <div id="title">RCSprint <small>1/10 Dirt Oval &middot; Losi 22S Sprint</small></div>
       <div id="fps">-- fps</div>
+      <div id="racehud">
+        <div><div class="lbl">Lap</div><div class="val" id="hudLap">1<small>/15</small></div></div>
+        <div><div class="lbl">Pos</div><div class="val" id="hudPos">1<small>/8</small></div></div>
+        <div><div class="lbl">Lap Time</div><div class="val" id="hudTime">0.00</div></div>
+        <div><div class="lbl">Best</div><div class="val" id="hudBest">--</div></div>
+      </div>
+      <div id="speedo"><div class="n" id="hudSpeed">0</div><div class="u">MPH</div></div>
     </div>
     <div id="loading">Loading engine&hellip;</div>
     <script type="module" src="/src/main.ts"></script>

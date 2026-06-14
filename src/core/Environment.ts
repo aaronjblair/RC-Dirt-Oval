@@ -54,7 +54,7 @@ export function setupEnvironment(scene: Scene, camera: Camera): EnvHandles {
   // --- Light dust haze toward horizon ---
   scene.fogMode = Scene.FOGMODE_EXP2;
   scene.fogColor = new Color3(0.78, 0.82, 0.88);
-  scene.fogDensity = 0.006;
+  scene.fogDensity = 0.0032;
 
   // --- Post pipeline ---
   const pipeline = new DefaultRenderingPipeline("default", true, scene, [camera]);

@@ -118,6 +118,12 @@ export class RaycastVehicle {
     return Vector3.Dot(this.groundNormal, UP);
   }
 
+  /** Scrub speed when scraping a wall (called by the bounds limiter). */
+  collideWall() {
+    this.vLong *= 0.9;
+    this.vLat = 0;
+  }
+
   resetTo(pos?: Vector3, yaw?: number) {
     this.pos.copyFrom(pos ?? this.spawnPos);
     this.yaw = yaw ?? this.spawnYaw;
