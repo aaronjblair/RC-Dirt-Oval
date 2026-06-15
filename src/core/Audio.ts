@@ -69,11 +69,11 @@ export class EngineAudio {
     const target = Math.min(1, (speed / 26) * 0.8 + throttle * 0.35);
     this.rpm += (target - this.rpm) * (target > this.rpm ? 0.12 : 0.06);
     const r = this.rpm;
-    const f = 95 + r * 430; // fundamental sweeps high like a screaming 2S brushless
+    const f = 62 + r * 235; // throaty methanol-sprint sweep (kept well below a whine)
     this.oscA.frequency.value = f;
     this.oscB.frequency.value = f * 1.01 + 1.5;
     this.oscC.frequency.value = f * 2.0;
-    this.filter.frequency.value = 500 + r * 2600 + throttle * 900;
+    this.filter.frequency.value = 380 + r * 1500 + throttle * 600;
     this.motorGain.gain.value = 0.035 + r * 0.07 + throttle * 0.02;
     this.biteGain.gain.value = throttle * r * 0.03; // snarl only under load
     this.scrub.gain.value = Math.min(0.14, Math.max(0, slip - 0.5) * 0.06);
