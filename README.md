@@ -40,8 +40,10 @@ npm run preview  # serve the production build locally
 ```
 `dist/` is the whole game. It must be **served over http(s)** — opening `index.html` from `file://` won't work (browsers block ES modules + WASM there). See **[DISTRIBUTION.md](DISTRIBUTION.md)** for itch.io / Netlify / local-server / same-Wi-Fi options.
 
-## Share a live link (GitHub Pages)
-A workflow at `.github/workflows/deploy.yml` builds and publishes the game on every push to `main`. To turn it on once: in the repo, go to **Settings → Pages → Build and deployment → Source: GitHub Actions**. The next push deploys to `https://<user>.github.io/RCSprint/` — a link you can send to anyone. (GitHub Pages is free on **public** repos; private-repo Pages needs a paid plan. The relative `base` in `vite.config.ts` also lets you drag `dist/` straight onto Netlify/itch.io.)
+## Play it / share a live link (GitHub Pages)
+**Live:** **https://aaronjblair.github.io/RCSprint/** — open it on a phone or desktop and share it with anyone.
+
+A workflow at `.github/workflows/deploy.yml` builds and publishes the game on every push to `main` (Pages source is **GitHub Actions**, set under **Settings → Pages**). **Runtime references to `public/` assets must be `import.meta.env.BASE_URL`-relative, not a leading slash**, or they 404 under the `/RCSprint/` subpath. GitHub Pages is free on **public** repos; private-repo Pages needs a paid plan. The relative `base` in `vite.config.ts` also lets you drag `dist/` straight onto Netlify/itch.io to keep a repo private.
 
 > `npm run build` is the only gate — there is no test runner or linter. `tsconfig` is strict (`noUnusedLocals`, `noUnusedParameters`, `noImplicitReturns`), so an unused symbol fails the build. Use `npx tsc --noEmit` for a fast typecheck.
 
