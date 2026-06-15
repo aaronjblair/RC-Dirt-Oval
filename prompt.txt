@@ -54,7 +54,9 @@ TRACKS (data-driven)
   night (bool), and backdrop (one of mountains/mesas/forest/plains/city/dunes/badlands).
 - An OvalTrack procedurally builds a COUNTER-CLOCKWISE banked stadium oval (2 straights +
   2 180-degree turns) from those numbers, plus walls, infield/outfield ground, banners,
-  contiguous evolving groove BANDS (apron -> bottom groove -> slick -> top cushion -> marbles),
+  a GRASSED INFIELD filling the oval with a speedway logo laid flat and faded onto it (paint sprayed
+  on the surface — a bundled image asset, alpha-blended/matte), contiguous evolving groove BANDS
+  (apron -> bottom groove -> slick -> top cushion -> marbles),
   start/finish, and centerline helpers project()/gridPose(). Build trackside scenery (Scenery.ts):
   a drivers' stand, corner light towers, a start/finish gantry, and a PER-ROUND THEMED BACKDROP
   (mountains/mesas/forest/plains/city/dunes/badlands — distinct silhouette + color, darker at
@@ -80,8 +82,10 @@ CARS — must look PICTURE-PERFECT (hard visual bar)
 Every car (player and AI) must read as a clean, correct WINGED sprint car at all times:
 four tires at the corners, top wing + front wing on, body/livery intact, driver helmet,
 roll cage, no missing/floating/clipping parts. Build procedurally (Car.ts):
-- Body tub, tail, nose; tall rectangular TOP WING with side dive plates carrying the car
-  number + sponsor text and a wicker bill; smaller front wing with endplates.
+- Body tub, tail, nose; a big raked TOP WING (cambered leading lip, tall lettered side boards
+  carrying the car number + sponsor text, wickerbill); smaller front wing with endplates.
+- The exposed sprint-car front end: a round front NERF-BAR nose bumper hoop, plus a tubular
+  straight FRONT AXLE on radius rods. Roll cage, chrome headers, nerf bars, engine + injector stacks.
 - Staggered wheels with a big right-rear. Build each tire by REVOLVING a cross-section
   profile (lathe) so it has rounded shoulders and a slightly square tread — no sidewall or
   shoulder mesh may exceed the tread radius (a too-big torus bulge reads as Mickey-Mouse

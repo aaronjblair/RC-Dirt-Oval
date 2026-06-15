@@ -9,8 +9,8 @@ A browser 3D **1/10-scale dirt-oval RC sprint car racing game**, modeled on the 
 - **Contact that bites** — positional car-to-car and wall contact; a genuinely hard T-bone or wall slam triggers a **barrel-roll rollover** that recovers upright and keeps the race going.
 - **Cinematic attract intro** — open the app and a TV-style "broadcast" reel plays (AI field racing, cutting between a crane orbit, low trackside, a chase cam, and a flyby); click or press any key to enter the menu.
 - **15-track career/championship** — progressively harder dirt ovals that **always roll on to the next track**; night rounds under the lights.
-- **Full ~8–10-car fields** of winged sprint cars (every car a clean winged sprint) on lettered **Hoosier** dirt slicks with chrome dished wheels, right-rear rooster-tail dust, and a high-revving methanol engine note.
-- **A different horizon every round** — each track has its own dirt color and a distinct themed backdrop: mountains, red-rock mesas, pine forest, open plains (silos + barn), city skyline, sand dunes, or striped badlands, on a landscape that runs to the horizon.
+- **Full ~8–10-car fields** of winged sprint cars (every car a clean winged sprint — big raked top wing, round front nerf bar, tubular front axle) on lettered **Hoosier** dirt slicks with chrome dished wheels, right-rear rooster-tail dust, and a throaty methanol engine note. The pack **drafts and slingshots** to keep the racing side-by-side.
+- **A different horizon every round** — each track has its own dirt color and a distinct themed backdrop: mountains, red-rock mesas, pine forest, open plains (silos + barn), city skyline, sand dunes, or striped badlands, on a landscape that runs to the horizon. A **grassed infield** carries the speedway logo sprayed onto the surface.
 - **Live HUD** — lap/position, **interval gaps** to the cars ahead/behind, last vs best lap, tire wear, track state, minimap.
 - **Gamepad / yoke + pedals primary, keyboard fallback.**
 
