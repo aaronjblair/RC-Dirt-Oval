@@ -6,7 +6,7 @@ import { Color3 } from "@babylonjs/core/Maths/math.color";
 
 /** PBR dirt material from the bundled CC0 photo set (albedo + normal + AO). */
 export function makeDirtPBR(scene: Scene, name: string, uScale: number, vScale: number, tint: Color3): PBRMaterial {
-  const base = "/textures/dirt/";
+  const base = import.meta.env.BASE_URL + "textures/dirt/"; // base-relative so it works under a Pages subpath
   const mk = (file: string) => {
     const t = new Texture(base + file, scene);
     t.wrapU = Texture.WRAP_ADDRESSMODE;

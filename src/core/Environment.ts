@@ -27,7 +27,7 @@ export interface EnvHandles {
  */
 export function setupEnvironment(scene: Scene, camera: Camera, night = false): EnvHandles {
   // --- IBL for reflections only (not used as the visible sky) ---
-  const env = CubeTexture.CreateFromPrefilteredData("/env/environment.env", scene);
+  const env = CubeTexture.CreateFromPrefilteredData(import.meta.env.BASE_URL + "env/environment.env", scene);
   env.gammaSpace = false;
   scene.environmentTexture = env;
   scene.environmentIntensity = night ? 0.12 : 0.5;
