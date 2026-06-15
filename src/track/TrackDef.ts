@@ -2,7 +2,6 @@ import { Color3 } from "@babylonjs/core/Maths/math.color";
 
 /** Distant scenery silhouette ringing a track — one per round for visual variety. */
 export type BackdropTheme =
-  | "mountains" // snow-capped peaks
   | "mesas"     // flat-topped red desert buttes
   | "forest"    // rolling pine-covered hills
   | "plains"    // open farmland: grain silos + barn, big sky

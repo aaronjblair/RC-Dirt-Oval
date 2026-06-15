@@ -37,12 +37,12 @@ const BANKING: number[] = [
 const BACKDROP: BackdropTheme[] = [
   "mesas",     // 1  Red Clay Bullring — red desert buttes
   "forest",    // 2  River Bottom Speedway — wooded river valley
-  "mountains", // 3  Thunder Valley Dirt
+  "badlands",  // 3  Thunder Valley Dirt
   "plains",    // 4  Dusty Acres Oval — farmland
   "forest",    // 5  Big Diamond Raceway
   "badlands",  // 6  Devil's Bowl Speedway — striped rock
   "plains",    // 7  Cornhusker Half-Mile — silos & barn
-  "mountains", // 8  Black Hills Outlaw Park (night)
+  "forest",    // 8  Black Hills Outlaw Park (night)
   "dunes",     // 9  Volusia Sands Speedway — coastal sand
   "plains",    // 10 Knoxville Clay Classic
   "city",      // 11 Bristol Dirt Bowl — coliseum skyline

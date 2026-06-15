@@ -103,7 +103,7 @@ function floorColor(theme: BackdropTheme): Color3 {
     case "badlands": return new Color3(0.48, 0.36, 0.26);
     case "plains": return new Color3(0.42, 0.40, 0.22);
     case "city": return new Color3(0.20, 0.21, 0.23);
-    default: return new Color3(0.30, 0.30, 0.27); // mountains
+    default: return new Color3(0.30, 0.30, 0.27); // neutral fallback
   }
 }
 
@@ -132,19 +132,6 @@ function buildBackdrop(scene: Scene, track: OvalTrack, night: boolean): void {
   };
 
   switch (track.def.backdrop) {
-    case "mountains": {
-      const rock = cone("mtnRock", 0, 5, dim(new Color3(0.31, 0.30, 0.35), 0.32));
-      const snow = cone("mtnSnow", 0, 5, dim(new Color3(0.93, 0.94, 0.98), 0.6));
-      for (const ring of [0, 1]) for (let a = ring * 0.07; a < Math.PI * 2; a += 0.12) {
-        const h = (ring ? 105 : 75) + Math.random() * 80, base = h * (0.8 + Math.random() * 0.5);
-        const r = safeR(far + ring * 70 + (Math.random() - 0.5) * 40, base);
-        const x = Math.cos(a) * r, z = Math.sin(a) * r * zS;
-        const p = rock.createInstance("mtn");
-        p.position.set(x, h / 2 - 5, z); p.scaling.set(base, h, base); p.rotation.y = Math.random() * Math.PI; p.freezeWorldMatrix();
-        if (h > 95) { const ch = h * 0.3; const c = snow.createInstance("cap"); c.position.set(x, h - 5 - ch / 2, z); c.scaling.set(base * 0.36, ch, base * 0.36); c.rotation.y = p.rotation.y; c.freezeWorldMatrix(); }
-      }
-      break;
-    }
     case "mesas": {
       const m = cone("mesa", 0.8, 7, dim(new Color3(0.58, 0.25, 0.13), 0.4)); // deep red flat-topped butte
       for (const ring of [0, 1]) for (let a = ring * 0.08; a < Math.PI * 2; a += 0.16) {

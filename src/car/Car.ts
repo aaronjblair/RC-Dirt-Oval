@@ -275,12 +275,6 @@ export function createCar(
   const halo = add(MeshBuilder.CreateTorus("halo", { diameter: 0.5, thickness: 0.045, tessellation: 16 }, scene), mChrome, root);
   halo.position.set(0, 0.52, -0.16); halo.scaling.z = 1.2;
 
-  // Headers — chrome side pipes
-  for (let i = 0; i < 4; i++) {
-    const p = add(MeshBuilder.CreateCylinder("hdr" + i, { diameter: 0.055, height: 0.5, tessellation: 10 }, scene), mChrome, root);
-    p.rotation.z = Math.PI / 2; p.rotation.y = 0.3; p.position.set(0.42, 0.0, 0.3 - i * 0.18);
-  }
-
   // Nerf bars + rear bumper hoop
   for (const sx of [1, -1]) {
     const bar = add(MeshBuilder.CreateCylinder("nerf" + sx, { diameter: 0.05, height: 1.1, tessellation: 8 }, scene), mChrome, root);

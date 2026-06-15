@@ -328,7 +328,7 @@ export class OvalTrack {
     const lw = Math.min((R - W / 2) * 1.5, 30); // fits inside the infield half-width
     const logo = MeshBuilder.CreatePlane("infieldLogo", { width: lw, height: lw / 2.85 }, this.scene);
     logo.rotation.x = -Math.PI / 2; // lay flat, image facing up (un-mirrored from above)
-    logo.rotation.y = Math.PI / 2; // run the wordmark along the straights, readable from the stand
+    logo.rotation.y = -Math.PI / 2; // run the wordmark along the straights, readable from the stand (flipped 180°)
     logo.position.set(0, y + 0.015, 0);
     logo.material = logoMat;
     logo.isPickable = false;

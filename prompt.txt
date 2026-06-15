@@ -51,7 +51,7 @@ GAME SHAPE
 TRACKS (data-driven)
 - A TrackDef holds: cornerRadius, straightLength, width, banking (radians), baseGrip,
   gripFalloff (per lap), rutIntensity, aiSkill, fieldSize, laps, dirtColor, difficulty,
-  night (bool), and backdrop (one of mountains/mesas/forest/plains/city/dunes/badlands).
+  night (bool), and backdrop (one of mesas/forest/plains/city/dunes/badlands).
 - An OvalTrack procedurally builds a COUNTER-CLOCKWISE banked stadium oval (2 straights +
   2 180-degree turns) from those numbers, plus walls, infield/outfield ground, banners,
   a GRASSED INFIELD filling the oval with a speedway logo laid flat and faded onto it (paint sprayed
@@ -59,7 +59,7 @@ TRACKS (data-driven)
   (apron -> bottom groove -> slick -> top cushion -> marbles),
   start/finish, and centerline helpers project()/gridPose(). Build trackside scenery (Scenery.ts):
   a drivers' stand, corner light towers, a start/finish gantry, and a PER-ROUND THEMED BACKDROP
-  (mountains/mesas/forest/plains/city/dunes/badlands — distinct silhouette + color, darker at
+  (mesas/forest/plains/city/dunes/badlands — distinct silhouette + color, darker at
   night) with themed near vegetation. The 400m infield only covers ±200m, so also lay a large
   WORLD FLOOR (~1700m, tinted per theme) under everything or half-buried sphere hills/dunes
   float over void. No grandstands.

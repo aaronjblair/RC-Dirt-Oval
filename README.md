@@ -10,7 +10,7 @@ A browser 3D **1/10-scale dirt-oval RC sprint car racing game**, modeled on the 
 - **Cinematic attract intro** — open the app and a TV-style "broadcast" reel plays (AI field racing, cutting between a crane orbit, low trackside, a chase cam, and a flyby); click or press any key to enter the menu.
 - **15-track career/championship** — progressively harder dirt ovals that **always roll on to the next track**; night rounds under the lights.
 - **Full ~8–10-car fields** of winged sprint cars (every car a clean winged sprint — big raked top wing, round front nerf bar, tubular front axle) on lettered **Hoosier** dirt slicks with chrome dished wheels, right-rear rooster-tail dust, and a throaty methanol engine note. The pack **drafts and slingshots** to keep the racing side-by-side.
-- **A different horizon every round** — each track has its own dirt color and a distinct themed backdrop: mountains, red-rock mesas, pine forest, open plains (silos + barn), city skyline, sand dunes, or striped badlands, on a landscape that runs to the horizon. A **grassed infield** carries the speedway logo sprayed onto the surface.
+- **A different horizon every round** — each track has its own dirt color and a distinct themed backdrop: red-rock mesas, pine forest, open plains (silos + barn), city skyline, sand dunes, or striped badlands, on a landscape that runs to the horizon. A **grassed infield** carries the speedway logo sprayed onto the surface.
 - **Live HUD** — lap/position, **interval gaps** to the cars ahead/behind, last vs best lap, tire wear, track state, minimap.
 - **Gamepad / yoke + pedals primary, keyboard fallback.**
 
@@ -68,7 +68,7 @@ src/
     OvalTrack.ts        # builds a banked stadium oval + grassed infield (sprayed speedway logo) + centerline helpers (project/gridPose)
     tracks.ts           # generateCareer() — the 15-round calendar (night rounds 8/12/15)
     SurfaceModel.ts     # grip evolution over a race (tacky → groove → slick)
-    Scenery.ts          # drivers' stand, themed horizon backdrop (mountains/mesas/forest/plains/city/dunes/badlands) + world floor, light towers, vegetation, start/finish gantry
+    Scenery.ts          # drivers' stand, themed horizon backdrop (mesas/forest/plains/city/dunes/badlands) + world floor, light towers, vegetation, start/finish gantry
   ai/AIDriver.ts        # racing-line follow, difficulty, avoidance
   race/
     Field.ts            # builds + drives the whole field; contacts, walls, tire wear, dust
