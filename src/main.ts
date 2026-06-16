@@ -166,6 +166,18 @@ async function boot() {
   };
   if (location.search.includes("streak")) buildStreaker();
 
+  // Hidden ?streakcam preview: hold the infield wave pose and frame her with a dedicated camera.
+  let streakCam: UniversalCamera | null = null;
+  const skForCam = streaker as Streaker | null; // streaker is set inside buildStreaker (a closure)
+  if (location.search.includes("streakcam") && skForCam) {
+    const tgt = skForCam.poseForPhoto();
+    streakCam = new UniversalCamera("streakcam", new Vector3(tgt.x + 17, 4.5, tgt.z + 4), scene);
+    streakCam.minZ = 0.05; streakCam.maxZ = 6000; streakCam.fov = 0.5; streakCam.inputs.clear();
+    streakCam.setTarget(new Vector3(tgt.x, 3.0, tgt.z));
+    env.pipeline.addCamera(streakCam);
+    try { scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", streakCam); } catch { /* headless */ }
+  }
+
   const input = new InputManager();
   new SetupPanel(setup, (s) => { field.applyPlayerSetup(s); saveSetup(s); }, carClassDef.label);
   const minimap = new Minimap(hud, track);
@@ -383,6 +395,7 @@ async function boot() {
       photoCam.setTarget(new Vector3(pp.x, pp.y + 0.35, pp.z));
       scene.activeCamera = photoCam;
     }
+    if (streakCam) scene.activeCamera = streakCam; // hidden streaker preview overrides the view
     status.style.display = view === "aerial" ? "none" : ""; // the lower-left bar blocks the aerial corner
 
     if (state !== "racing") return; // no HUD work outside a live race

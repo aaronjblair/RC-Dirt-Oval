@@ -74,6 +74,10 @@ export function buildStreakerFigure(scene: Scene, name: string, shadow: ShadowGe
   for (const sx of [1, -1]) {
     add(MeshBuilder.CreateSphere(name + "Tie" + sx, { diameter: 0.06, segments: 6 }, scene), bikini).position.set(sx * 0.15, 0.93, 0);
   }
+  // dark-gray downward-pointing triangle on the front of the bikini bottom (a 3-sided cone, apex down)
+  const triM = mat(scene, name + "Tri", new Color3(0.20, 0.21, 0.23), { rough: 0.6 });
+  const tri = add(MeshBuilder.CreateCylinder(name + "Tri", { diameterTop: 0.16, diameterBottom: 0, height: 0.18, tessellation: 3 }, scene), triM);
+  tri.position.set(0, 0.84, 0.14); tri.rotation.x = -0.18; // apex points DOWN, tilted to hug the front
 
   // --- torso (skin), narrowed at the waist ---
   add(MeshBuilder.CreateCapsule(name + "Torso", { radius: 0.155, height: 0.46, tessellation: 12 }, scene), skin).position.set(0, 1.14, 0);
@@ -137,7 +141,7 @@ export class Streaker {
   private shoulders: TransformNode[];
   private hair: Mesh;
 
-  private state: "waiting" | "running" = "waiting";
+  private state: "waiting" | "waving" | "running" = "waiting";
   private timer = 6;
   private t = 0;
   private phase = 0;
@@ -145,6 +149,8 @@ export class Streaker {
   private to = new Vector3();
   private faceY = 0;
   private runDur = 2.6;
+  private waveT = 0;
+  private photoLock = false; // ?streakcam: hold the infield wave pose for previews
 
   constructor(scene: Scene, private track: OvalTrack, shadow: ShadowGenerator | null) {
     const fig = buildStreakerFigure(scene, "streaker", shadow);
@@ -176,17 +182,51 @@ export class Streaker {
     this.faceY = Math.atan2(b.x - a.x, b.z - a.z);
     this.t = 0;
     this.runDur = 2.4 + Math.random() * 0.6;
+    this.shoulders[0].rotation.z = 0; // clear any wave abduction
     this.state = "running";
     this.root.setEnabled(true);
     this.chaser.setEnabled(true);
   }
 
+  /** Stand in the MIDDLE OF THE INFIELD and wave toward the stand/cameras, then dash across. */
+  private beginWave(): void {
+    this.root.position.set(0, 0, 0);   // infield centre
+    this.faceY = Math.PI / 2;          // face +x (toward the front straight / stand / cameras)
+    this.root.rotation.y = this.faceY;
+    this.hips[0].rotation.x = 0; this.hips[1].rotation.x = 0;
+    this.shoulders[1].rotation.x = 0;
+    this.waveT = 0; this.phase = 0;
+    this.state = "waving";
+    this.root.setEnabled(true);
+    this.chaser.setEnabled(false);     // no chaser during the infield wave
+  }
+
+  private updateWave(dt: number): void {
+    this.waveT += dt;
+    this.phase += dt * 6;
+    // right arm raised overhead, waving side to side
+    this.shoulders[0].rotation.x = -2.5;
+    this.shoulders[0].rotation.z = 0.5 + Math.sin(this.phase) * 0.5;
+    this.hair.rotation.x = -0.1 + Math.sin(this.phase * 0.4) * 0.05;
+    if (!this.photoLock && this.waveT >= 3.5) this.beginRun(); // then run across the track
+  }
+
+  /** Freeze her into the infield wave pose (for the hidden ?streakcam preview). Returns her
+   *  approximate chest position so a camera can frame her. */
+  poseForPhoto(): Vector3 {
+    this.photoLock = true;
+    this.beginWave();
+    this.updateWave(0.4);
+    return new Vector3(0, 1.6 * FIG_SCALE, 0);
+  }
+
   update(dt: number): void {
     if (this.state === "waiting") {
       this.timer -= dt;
-      if (this.timer <= 0) this.beginRun();
+      if (this.timer <= 0) { if (Math.random() < 0.5) this.beginWave(); else this.beginRun(); }
       return;
     }
+    if (this.state === "waving") { this.updateWave(dt); return; }
 
     this.t += dt / this.runDur;
     this.phase += dt * 13;
