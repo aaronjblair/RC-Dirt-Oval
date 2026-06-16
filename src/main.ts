@@ -154,20 +154,17 @@ async function boot() {
   (window as any).__cockpit = cockpit;
 
   type View = "normal" | "incar" | "aerial";
-  const VIEW_KEY = "rcsprint.view";
   const VIEW_LABEL: Record<View, string> = { incar: "🎥 In-Car", normal: "📺 Track", aerial: "🚁 Aerial" };
-  const loadView = (): View => {
-    // `?view=incar|aerial|track` forces the initial view (dev/preview + shareable cockpit link).
+  // The race ALWAYS starts in Track (driver-stand) view; `?view=incar|aerial` is an explicit override
+  // (dev/preview + shareable links). The button / V / C still switch the view live during the race.
+  const initialView = (): View => {
     const q = new URLSearchParams(location.search).get("view");
-    if (q === "incar" || q === "aerial") return q;
-    if (q === "track" || q === "normal") return "normal";
-    try { const v = localStorage.getItem(VIEW_KEY); if (v === "incar" || v === "aerial") return v; } catch { /* ignore */ }
-    return "normal";
+    return q === "incar" || q === "aerial" ? q : "normal";
   };
-  let view: View = loadView();
+  let view: View = initialView();
   const viewBtn = document.getElementById("view") as HTMLButtonElement | null;
   const reflectView = () => { if (viewBtn) viewBtn.textContent = VIEW_LABEL[view]; };
-  const setView = (v: View) => { view = v; try { localStorage.setItem(VIEW_KEY, v); } catch { /* ignore */ } reflectView(); };
+  const setView = (v: View) => { view = v; reflectView(); };
   reflectView();
   const cycleView = () => setView(view === "normal" ? "incar" : view === "incar" ? "aerial" : "normal");
   viewBtn?.addEventListener("click", cycleView);

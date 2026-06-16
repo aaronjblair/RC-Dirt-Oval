@@ -16,7 +16,7 @@ import type { RaycastVehicle } from "../physics/RaycastVehicle";
  */
 const EYE = new Vector3(0, 0.72, -0.22); // driver's-eye mount, local to the car root (sits up & back
                                          //  over the tail so the long nose shows in the lower frame)
-const BASE_FOV = 1.12; // wide-ish so more of the track/surroundings reads (zoomed out, easier to see)
+const BASE_FOV = 1.22; // wide so plenty of the track/surroundings reads (zoomed out, easy to see)
 const BASE_PITCH = 0.06; // a hair nose-down so the track + the car's own nose fill the lower frame
 
 export class CockpitCamera {
@@ -72,6 +72,6 @@ export class CockpitCamera {
 
     this.camera.position.set(this.shakeX, this.shakeY, 0);
     this.camera.rotation.set(BASE_PITCH + this.shakeY * 0.4, this.look, this.lean);
-    this.camera.fov = BASE_FOV + Math.min(0.12, speed * 0.004); // subtle sense of speed
+    this.camera.fov = BASE_FOV + Math.min(0.07, speed * 0.003); // subtle sense of speed (kept mild so it never goes fisheye)
   }
 }

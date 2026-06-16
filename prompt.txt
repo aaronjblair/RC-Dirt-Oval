@@ -59,7 +59,7 @@ racing; smooth with setTargetAtTime. Mute with M / a HUD button -> master gain 0
 localStorage["rcsprint.muted"]. No audio for AI cars. Degrade to a silent no-op if no AudioContext.
 
 GAME SHAPE
-- THREE camera views (persisted view enum normal|incar|aerial; localStorage; ?view= override):
+- THREE camera views (view enum normal|incar|aerial; ALWAYS starts at Track each race; ?view= override):
   - Driver-stand ("Track"): an elevated trackside RC vantage that smoothly follows the player's
     car all the way around — aims straight at it (panning into the corners), slides along the
     straight to keep it close, and telephoto-zooms as it runs to the far side.

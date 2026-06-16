@@ -54,7 +54,7 @@ the timing booth, and any future person/prop/building.
   the whole assembly so the **person** lands near target.
 
 ## Game shape
-- **Three camera views** (persisted `view` enum `normal|incar|aerial`, `localStorage`, `?view=`):
+- **Three camera views** (`view` enum `normal|incar|aerial`; **always starts at Track each race**; `?view=` override):
   the **driver-stand** follow cam (elevated trackside RC vantage that aims at the car, pans into
   corners, telephoto-zooms to the far side), a high **aerial** overview, and a first-person
   **in-car/cockpit** cam (`CockpitCamera.ts`) parented to the player car root so it inherits
