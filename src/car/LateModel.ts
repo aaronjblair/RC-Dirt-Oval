@@ -207,6 +207,27 @@ export function createLateModel(
     sb.position.set(0.48 * sx, 0.42, -1.0);
   }
 
+  // --- Bevel/round the hard box edges so the body reads as rolled tin, not a slab ---
+  const edgeR = (name: string, r: number, len: number, axis: "x" | "y" | "z", x: number, y: number, z: number, m: PBRMaterial = mPaint) => {
+    const c = add(MeshBuilder.CreateCylinder(name, { diameter: r * 2, height: len, tessellation: 12 }, scene), m, root);
+    c.position.set(x, y, z);
+    if (axis === "x") c.rotation.z = Math.PI / 2;
+    else if (axis === "z") c.rotation.x = Math.PI / 2;
+    return c;
+  };
+  // lower body (centre 0,0,-0.12; half-w 0.5, top y +0.15, front z 0.655, rear z -0.895)
+  for (const sx of [1, -1]) edgeR("lmbevTop" + sx, 0.07, 1.55, "z", sx * 0.5, 0.15, -0.12);   // top side rolls
+  edgeR("lmbevFront", 0.07, 1.0, "x", 0, 0.15, 0.655);                                          // top front roll
+  edgeR("lmbevRear", 0.07, 1.0, "x", 0, 0.15, -0.895);                                          // top rear roll
+  for (const sx of [1, -1]) {                                                                   // rounded vertical corners
+    edgeR("lmcF" + sx, 0.07, 0.30, "y", sx * 0.5, 0, 0.655);
+    edgeR("lmcR" + sx, 0.07, 0.30, "y", sx * 0.5, 0, -0.895);
+  }
+  // nose leading edge (rounded) + rounded roof perimeter
+  edgeR("lmnoseLead", 0.06, 0.98, "x", 0, 0.06, 1.13);
+  for (const sx of [1, -1]) edgeR("lmroofE" + sx, 0.035, 0.66, "z", sx * 0.39, 0.735, -0.06);
+  edgeR("lmroofF", 0.035, 0.78, "x", 0, 0.735, 0.27);
+
   // --- Driver (visible through the windshield) ---
   add(MeshBuilder.CreateSphere("lmseat", { diameter: 0.5, segments: 12 }, scene), mCarbon, root).position.set(0, 0.18, -0.15);
   add(MeshBuilder.CreateCapsule("lmtorso", { radius: 0.16, height: 0.4, tessellation: 12 }, scene), mCarbon, root).position.set(0, 0.32, -0.1);
