@@ -223,10 +223,19 @@ export function createLateModel(
     edgeR("lmcF" + sx, 0.07, 0.30, "y", sx * 0.5, 0, 0.655);
     edgeR("lmcR" + sx, 0.07, 0.30, "y", sx * 0.5, 0, -0.895);
   }
-  // nose leading edge (rounded) + rounded roof perimeter
+  // nose leading edge (rounded)
   edgeR("lmnoseLead", 0.06, 0.98, "x", 0, 0.06, 1.13);
-  for (const sx of [1, -1]) edgeR("lmroofE" + sx, 0.035, 0.66, "z", sx * 0.39, 0.735, -0.06);
-  edgeR("lmroofF", 0.035, 0.78, "x", 0, 0.735, 0.27);
+  // roof: a rounded rail all the way around the perimeter + rounded corners (centre 0,0.71,-0.06;
+  // half-w 0.39, z 0.27..-0.39, top y 0.735) so it reads as a crowned roof, not a slab
+  for (const sx of [1, -1]) edgeR("lmroofE" + sx, 0.05, 0.66, "z", sx * 0.39, 0.735, -0.06);
+  edgeR("lmroofF", 0.05, 0.78, "x", 0, 0.735, 0.27);
+  edgeR("lmroofRr", 0.05, 0.78, "x", 0, 0.735, -0.39);
+  for (const sx of [1, -1]) { edgeR("lmrcF" + sx, 0.05, 0.1, "y", sx * 0.39, 0.71, 0.27); edgeR("lmrcR" + sx, 0.05, 0.1, "y", sx * 0.39, 0.71, -0.39); }
+  // tail panel rounding (lmtail 0.98×0.24×0.06 at 0,0.12,-1.12)
+  edgeR("lmtailTop", 0.05, 0.98, "x", 0, 0.24, -1.12);
+  for (const sx of [1, -1]) edgeR("lmtailC" + sx, 0.05, 0.24, "y", sx * 0.49, 0.12, -1.12, mPaintDark);
+  // spoiler side-board top rounding (lmsb at ±0.48,0.42,-1.0; top y 0.59)
+  for (const sx of [1, -1]) edgeR("lmsbR" + sx, 0.04, 0.42, "z", sx * 0.48, 0.59, -1.0);
 
   // --- Driver (visible through the windshield) ---
   add(MeshBuilder.CreateSphere("lmseat", { diameter: 0.5, segments: 12 }, scene), mCarbon, root).position.set(0, 0.18, -0.15);
