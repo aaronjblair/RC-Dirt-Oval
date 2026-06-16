@@ -101,7 +101,7 @@ export class Marshals {
       const faceHome = sgn > 0 ? 0 : Math.PI; // face out toward the near turn
       const chair = buildChair(scene, "chair" + sgn, chairMat, shadow);
       chair.position.set(home.x, 0, home.z);
-      chair.rotation.y = faceHome + Math.PI; // seat opening faces the way the marshal looks
+      chair.rotation.y = faceHome; // chairs turned to face the opposite way
       chair.getChildMeshes().forEach((m) => m.freezeWorldMatrix());
       const body = buildPerson(scene, "rescue" + sgn, vestO, shadow);
       body.position.set(home.x, -SIT_DROP, home.z); // seated
