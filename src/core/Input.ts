@@ -83,10 +83,15 @@ export class InputManager {
     const noGesture = (e: Event) => e.preventDefault();
     window.addEventListener("gesturestart", noGesture, { passive: false });
     window.addEventListener("gesturechange", noGesture, { passive: false });
+    // The reliable iOS Safari pinch-zoom block: cancel any MULTI-touch move (touch-action +
+    // gesturestart alone don't stop it when each finger is captured by a control). A single finger
+    // is never prevented, so the Guide overlay / name input still scroll normally.
+    document.addEventListener("touchmove", (e) => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
     const root = document.createElement("div");
     root.id = "touchControls";
     root.style.cssText =
-      "position:fixed;inset:0;z-index:15;pointer-events:none;touch-action:none;" +
+      // left/top/width/height (not inset:0) so the visualViewport pin below can size + transform it.
+      "position:fixed;left:0;top:0;width:100%;height:100%;z-index:15;pointer-events:none;touch-action:none;" +
       "font-family:system-ui,sans-serif;user-select:none;-webkit-user-select:none;";
 
     // --- Steering pad (bottom-left, proportional) ---
@@ -154,6 +159,22 @@ export class InputManager {
     root.appendChild(rst);
 
     document.body.appendChild(root);
+
+    // Pin the control layer to the VISUAL viewport: counter-translate/scale so the bottom/right-anchored
+    // buttons always sit in the visible area. Belt-and-suspenders — if iOS ever still zooms/pans, or the
+    // Safari toolbar shows/hides, the controls track the visible screen instead of scrolling off.
+    const vv = window.visualViewport;
+    if (vv) {
+      const pin = () => {
+        root.style.transformOrigin = "0 0";
+        root.style.transform = `translate(${vv.offsetLeft}px, ${vv.offsetTop}px) scale(${1 / vv.scale})`;
+        root.style.width = `${vv.width}px`;
+        root.style.height = `${vv.height}px`;
+      };
+      vv.addEventListener("resize", pin);
+      vv.addEventListener("scroll", pin);
+      pin();
+    }
   }
 
   /** Forget all device calibration; relearn rest positions over the next frames. */
