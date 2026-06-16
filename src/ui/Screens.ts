@@ -59,6 +59,32 @@ export const Screens = {
     return d;
   },
 
+  /** Choose the car class to race (shown when the app opens). Picking the current class continues;
+   *  picking another reloads into it (the caller persists + reloads). */
+  classSelect(
+    current: string,
+    classes: { id: string; label: string; subtitle: string }[],
+    onPick: (id: string) => void,
+  ): HTMLDivElement {
+    const cards = classes.map((c) => {
+      const sel = c.id === current;
+      return `<button id="cls_${c.id}" style="${BTN2};text-align:left;margin-top:12px;padding:14px 16px;${sel ? "border:2px solid #ffd34d;background:#3a4250" : "border:2px solid transparent"}">
+          <div style="font-size:16px;font-weight:800;color:#ffd34d">${c.label}${sel ? " &nbsp;<span style='font-size:11px;color:#9aa6b3'>(current)</span>" : ""}</div>
+          <div style="font-size:12px;color:#c8d0da;margin-top:3px">${c.subtitle}</div>
+        </button>`;
+    }).join("");
+    const p = panel(
+      `<div style="font-size:12px;color:#9aa6b3;letter-spacing:1px">CHOOSE YOUR CLASS</div>
+       <div style="font-size:22px;font-weight:800;color:#ffd34d;margin:2px 0 4px">Pick a car</div>
+       <div style="font-size:12px;color:#c8d0da;margin-bottom:6px">Each class runs its own championship. Switch any time from here.</div>
+       ${cards}`
+    );
+    for (const c of classes) {
+      (p.querySelector(`#cls_${c.id}`) as HTMLButtonElement).onclick = () => { p.remove(); onPick(c.id); };
+    }
+    return p;
+  },
+
   preRace(def: TrackDef, round: number, total: number, champ: Standing[], onStart: () => void): HTMLDivElement {
     const p = panel(
       `<div style="font-size:12px;color:#9aa6b3;letter-spacing:1px">ROUND ${round + 1} / ${total} &middot; DIFFICULTY ${def.difficulty}</div>

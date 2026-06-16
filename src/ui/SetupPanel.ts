@@ -18,7 +18,7 @@ export class SetupPanel {
   private root: HTMLDivElement;
   private visible = false;
 
-  constructor(private setup: CarSetup, private onChange: (s: CarSetup) => void) {
+  constructor(private setup: CarSetup, private onChange: (s: CarSetup) => void, private className = "Losi 22S Sprint") {
     this.root = document.createElement("div");
     this.root.style.cssText =
       "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;" +
@@ -35,7 +35,7 @@ export class SetupPanel {
   private build() {
     const title = document.createElement("div");
     title.innerHTML = `<div style="font-weight:700;font-size:16px;color:#ffd34d">GARAGE — Car Setup</div>
-      <div style="font-size:11px;color:#9aa6b3;margin:2px 0 14px">Losi 22S Sprint &middot; press <b>G</b> to close</div>`;
+      <div style="font-size:11px;color:#9aa6b3;margin:2px 0 14px">${this.className} &middot; press <b>G</b> to close</div>`;
     this.root.appendChild(title);
 
     for (const r of ROWS) {

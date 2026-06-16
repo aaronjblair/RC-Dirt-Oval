@@ -6,7 +6,8 @@ import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
 import { makeDustTexture } from "../core/Textures";
 import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
-import { createCar, type BuiltCar } from "../car/Car";
+import { type BuiltCar } from "../car/Car";
+import { CAR_CLASSES, type CarClassDef } from "../car/CarClass";
 import superJayLogo from "../assets/superjay.png";
 import { AIDriver, type CarState } from "../ai/AIDriver";
 import { SurfaceModel } from "../track/SurfaceModel";
@@ -46,6 +47,7 @@ export class Field {
   readonly surface: SurfaceModel;
   private wallLimit: number;
   private dirtTint: Color3;
+  private classDef: CarClassDef;
 
   constructor(
     scene: Scene,
@@ -54,8 +56,10 @@ export class Field {
     private track: OvalTrack,
     def: TrackDef,
     race: RaceManager,
-    playerSetup: CarSetup = DEFAULT_SETUP
+    playerSetup: CarSetup = DEFAULT_SETUP,
+    classDef: CarClassDef = CAR_CLASSES.sprint
   ) {
+    this.classDef = classDef;
     this.wallLimit = def.width / 2 - 0.7;
     this.surface = new SurfaceModel(def);
     // Dust takes on the track's dirt colour (lifted toward a dry, dusty tone).
@@ -65,11 +69,12 @@ export class Field {
     for (let i = 0; i < n; i++) {
       const grid = track.gridPose(i);
       const p = PALETTE[i];
-      const car = createCar(scene, plugin, shadow, {
+      const car = classDef.build(scene, plugin, shadow, {
         color: p.c, number: p.n, spawn: grid.pos, yaw: grid.yaw,
         name: i === 0 ? "Super Jay" : undefined,
         logoUrl: i === 0 ? superJayLogo : undefined, // Super Jay's logo decal on the player car
         logoAspect: 686 / 1190,
+        config: classDef.config, // per-class physics baseline (the builder clones it per car)
       });
       this.cars.push(car);
       this.vehicles.push(car.vehicle);
@@ -77,7 +82,7 @@ export class Field {
       this.dust.push(this.makeDust(scene, car.root, dustTex, i));
       if (i === 0) {
         this.ai.push(null);
-        this.wearRate.push(applySetup(car.vehicle.cfg, playerSetup));
+        this.wearRate.push(applySetup(car.vehicle.cfg, playerSetup, classDef.config));
       } else {
         const skill = Math.max(0.2, Math.min(1, def.aiSkill + (Math.random() - 0.5) * 0.25));
         this.ai.push(new AIDriver(car.vehicle, track, skill));
@@ -120,7 +125,7 @@ export class Field {
 
   /** Re-apply player setup (e.g. after editing it in the garage). */
   applyPlayerSetup(setup: CarSetup) {
-    this.wearRate[0] = applySetup(this.player.vehicle.cfg, setup);
+    this.wearRate[0] = applySetup(this.player.vehicle.cfg, setup, this.classDef.config);
     this.wear[0] = 0;
   }
 

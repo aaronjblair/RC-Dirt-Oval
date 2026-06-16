@@ -29,6 +29,10 @@ export class MotorSound {
   private gSub!: GainNode;
   private gNoise!: GainNode;
 
+  // Lightweight per-AI-car voices: one saw osc → gain → stereo panner → master. No filter/noise/sub
+  // (the "light" tier), so a full field stays cheap. All sit under `master` so M mutes everything.
+  private aiVoices: { osc: OscillatorNode; gain: GainNode; pan: StereoPannerNode; started: boolean }[] = [];
+
   private started = false;
   private _muted = false;
 
@@ -98,6 +102,47 @@ export class MotorSound {
     this.started = true;
     const t = this.ctx.currentTime;
     this.fund.start(t); this.whine.start(t); this.sub.start(t); this.noise.start(t);
+    for (const v of this.aiVoices) if (!v.started) { v.osc.start(t); v.started = true; }
+  }
+
+  /** Ensure `n` lightweight AI motor voices exist (lazy, idempotent — only grows). */
+  setVoiceCount(n: number): void {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    while (this.aiVoices.length < n) {
+      const osc = ctx.createOscillator();
+      osc.type = "sawtooth";
+      osc.frequency.value = 110;
+      const gain = ctx.createGain();
+      gain.gain.value = 0;
+      const pan = ctx.createStereoPanner();
+      osc.connect(gain); gain.connect(pan); pan.connect(this.master);
+      const v = { osc, gain, pan, started: false };
+      if (this.started) { osc.start(ctx.currentTime); v.started = true; }
+      this.aiVoices.push(v);
+    }
+  }
+
+  /**
+   * Per-frame update for the AI field. Each state drives one voice:
+   * @param states  { speed (u/s), throttle 0..1, pan -1..1 (L..R vs camera), gain 0..1 (distance) }
+   * Voices beyond `states.length` are silenced.
+   */
+  updateVoices(states: { speed: number; throttle: number; pan: number; gain: number }[]): void {
+    if (!this.ctx || !this.started) return;
+    const t = this.ctx.currentTime;
+    for (let i = 0; i < this.aiVoices.length; i++) {
+      const v = this.aiVoices[i];
+      const s = states[i];
+      if (!s) { v.gain.gain.setTargetAtTime(0, t, 0.1); continue; }
+      const spd01 = Math.min(1, Math.max(0, s.speed / 26));
+      const rpm = Math.min(1, Math.max(spd01, Math.min(1, Math.max(0, s.throttle)) * 0.7));
+      v.osc.frequency.setTargetAtTime(90 + rpm * 360, t, 0.06);
+      // master cap is low; per-voice gain stays small so a 12-car field is a subtle pack, not a swarm
+      const g = (0.012 + rpm * 0.02) * Math.min(1, Math.max(0, s.gain));
+      v.gain.gain.setTargetAtTime(g, t, 0.08);
+      v.pan.pan.setTargetAtTime(Math.min(1, Math.max(-1, s.pan)), t, 0.08);
+    }
   }
 
   /**

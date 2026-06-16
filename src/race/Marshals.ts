@@ -36,8 +36,21 @@ export interface Look {
   longHair: boolean;// add a hair drape down the back
 }
 
-/** A simple clothed person built from primitives: legs, torso + arms, head, hair/cap. Root at the
- *  feet, scaled to real-human size. Appearance varies per `Look`. */
+/** Articulated limb rig so a figure can be animated (walk cycle: hips + knees + shoulders swing).
+ *  Each entry is a pivot TransformNode; rotating it about X swings that joint. Indices are
+ *  [sx=+1, sx=-1] (the two sides). Static figures just leave every pivot at its rest rotation. */
+export interface PersonRig {
+  hips: TransformNode[];      // leg swing from the hip
+  knees: TransformNode[];     // knee bend (shin lifts)
+  shoulders: TransformNode[]; // arm swing from the shoulder
+}
+/** Rig handles keyed by the figure root — populated by `buildPerson`, read by the animator
+ *  (the marshals). Callers that don't animate (spectators, the streaker chaser) simply ignore it. */
+export const personRigs = new WeakMap<TransformNode, PersonRig>();
+
+/** A simple clothed person built from primitives: legs (thigh+shin on hip/knee pivots), torso +
+ *  arms (on shoulder pivots), head, hair/cap. Root at the feet, scaled to real-human size.
+ *  Appearance varies per `Look`. At rest the rigged limbs read identical to a plain standing figure. */
 export function buildPerson(scene: Scene, name: string, look: Look, shadow: ShadowGenerator | null): TransformNode {
   const root = new TransformNode(name, scene);
   const skin = mat(scene, name + "skin", look.skin);
@@ -49,15 +62,35 @@ export function buildPerson(scene: Scene, name: string, look: Look, shadow: Shad
     m.material = material; m.parent = root; m.isPickable = false;
     if (shadow) shadow.addShadowCaster(m); m.receiveShadows = true; return m;
   };
+  const dress = (m: Mesh, material: PBRMaterial, parent: TransformNode) => {
+    m.material = material; m.parent = parent; m.isPickable = false;
+    if (shadow) shadow.addShadowCaster(m); m.receiveShadows = true; return m;
+  };
+  // Legs: a hip pivot at the top, a thigh hanging to the knee, a knee pivot, and a shin to the
+  // foot. At zero rotation this is a straight 0.74-tall leg (matching the old single cylinder).
+  const hips: TransformNode[] = [], knees: TransformNode[] = [];
   for (const sx of [1, -1]) {
-    const leg = add(MeshBuilder.CreateCylinder(name + "leg" + sx, { diameter: 0.14, height: 0.74, tessellation: 8 }, scene), pantsM);
-    leg.position.set(sx * 0.1, 0.37, 0);
+    const hip = new TransformNode(name + "hip" + sx, scene);
+    hip.parent = root; hip.position.set(sx * 0.1, 0.74, 0);
+    dress(MeshBuilder.CreateCylinder(name + "thigh" + sx, { diameter: 0.14, height: 0.37, tessellation: 8 }, scene), pantsM, hip)
+      .position.set(0, -0.185, 0);
+    const knee = new TransformNode(name + "knee" + sx, scene);
+    knee.parent = hip; knee.position.set(0, -0.37, 0);
+    dress(MeshBuilder.CreateCylinder(name + "shin" + sx, { diameter: 0.135, height: 0.37, tessellation: 8 }, scene), pantsM, knee)
+      .position.set(0, -0.185, 0);
+    hips.push(hip); knees.push(knee);
   }
   add(MeshBuilder.CreateCapsule(name + "torso", { radius: 0.17, height: 0.54, tessellation: 10 }, scene), shirtM).position.set(0, 1.0, 0);
+  // Arms on shoulder pivots so they can swing with the stride.
+  const shoulders: TransformNode[] = [];
   for (const sx of [1, -1]) {
-    const arm = add(MeshBuilder.CreateCylinder(name + "arm" + sx, { diameter: 0.1, height: 0.5, tessellation: 8 }, scene), shirtM);
-    arm.position.set(sx * 0.24, 1.0, 0);
+    const sh = new TransformNode(name + "sh" + sx, scene);
+    sh.parent = root; sh.position.set(sx * 0.24, 1.25, 0);
+    dress(MeshBuilder.CreateCylinder(name + "arm" + sx, { diameter: 0.1, height: 0.5, tessellation: 8 }, scene), shirtM, sh)
+      .position.set(0, -0.25, 0);
+    shoulders.push(sh);
   }
+  personRigs.set(root, { hips, knees, shoulders });
   add(MeshBuilder.CreateCylinder(name + "neck", { diameter: 0.1, height: 0.13, tessellation: 8 }, scene), skin).position.set(0, 1.31, 0);
   add(MeshBuilder.CreateSphere(name + "head", { diameter: 0.26, segments: 10 }, scene), skin).position.set(0, 1.44, 0);
   // hair sphere (always), optional long drape down the back, optional cap on top
@@ -120,6 +153,7 @@ function buildChair(scene: Scene, name: string, mt: PBRMaterial, shadow: ShadowG
 type State = "idle" | "toCar" | "work" | "back";
 interface Marshal {
   body: TransformNode;
+  rig?: PersonRig;  // articulated limbs (animated while jogging)
   home: Vector3;
   faceHome: number;
   seated: boolean; // home posture: sitting in a chair (infield end) vs. standing (corner)
@@ -164,7 +198,7 @@ export class Marshals {
       const body = buildPerson(scene, "marshal" + idx, looks[idx], shadow);
       body.position.set(home.x, -SIT_DROP, home.z); // seated in the chair
       body.rotation.y = faceHome;
-      this.marshals.push({ body, home, faceHome, seated: true, state: "idle", target: null, timer: 0, bob: 0 });
+      this.marshals.push({ body, rig: personRigs.get(body), home, faceHome, seated: true, state: "idle", target: null, timer: 0, bob: 0 });
       idx++;
     }
 
@@ -182,12 +216,14 @@ export class Marshals {
       const body = buildPerson(scene, "marshal" + idx, looks[idx], shadow);
       body.position.set(home.x, 0, home.z); // standing
       body.rotation.y = faceHome;
-      this.marshals.push({ body, home, faceHome, seated: false, state: "idle", target: null, timer: 0, bob: 0 });
+      this.marshals.push({ body, rig: personRigs.get(body), home, faceHome, seated: false, state: "idle", target: null, timer: 0, bob: 0 });
       idx++;
     }
   }
 
-  /** Walk a marshal toward a ground target; returns true on arrival. Adds a footfall bob. */
+  /** Walk a marshal toward a ground target; returns true on arrival. Pumps a full jog cycle —
+   *  legs swing from the hips, knees bend on the back-swing, arms swing opposite the legs — plus
+   *  a footfall bob. */
   private walk(m: Marshal, destX: number, destZ: number, dt: number): boolean {
     const dx = destX - m.body.position.x, dz = destZ - m.body.position.z;
     const dist = Math.hypot(dx, dz);
@@ -198,7 +234,30 @@ export class Marshals {
     m.body.rotation.y = Math.atan2(dx, dz);
     m.bob += dt * 9;
     m.body.position.y = Math.abs(Math.sin(m.bob)) * 0.07 * PEOPLE_SCALE;
+    this.animateGait(m, Math.sin(m.bob), Math.cos(m.bob));
     return false;
+  }
+
+  /** Drive the limb rig for a walk/jog. `s`/`c` are sin/cos of the gait phase. */
+  private animateGait(m: Marshal, s: number, c: number) {
+    const r = m.rig;
+    if (!r) return;
+    const swing = s * 0.6;                 // hip swing amplitude (~34°)
+    r.hips[0].rotation.x = swing;          // legs swing opposite each other
+    r.hips[1].rotation.x = -swing;
+    r.knees[0].rotation.x = Math.max(0, -c) * 1.0; // knee bends as that leg swings back/up
+    r.knees[1].rotation.x = Math.max(0, c) * 1.0;
+    r.shoulders[0].rotation.x = -swing * 0.8;      // arms counter-swing the legs
+    r.shoulders[1].rotation.x = swing * 0.8;
+  }
+
+  /** Return the limbs to a relaxed standing pose (used when idle / seated / working). */
+  private restGait(m: Marshal) {
+    const r = m.rig;
+    if (!r) return;
+    r.hips[0].rotation.x = r.hips[1].rotation.x = 0;
+    r.knees[0].rotation.x = r.knees[1].rotation.x = 0;
+    r.shoulders[0].rotation.x = r.shoulders[1].rotation.x = 0;
   }
 
   /** A car needs a marshal if it's wrecked (stuck upside down) or has been stalled a while. */
@@ -253,7 +312,7 @@ export class Marshals {
         case "toCar": {
           const car = m.target!;
           if (!this.needsHelp(car)) { this.release(m); break; } // recovered on its own / by R
-          if (this.walk(m, car.vehicle.position.x, car.vehicle.position.z, dt)) { m.state = "work"; m.timer = 0.9; }
+          if (this.walk(m, car.vehicle.position.x, car.vehicle.position.z, dt)) { m.state = "work"; m.timer = 0.9; this.restGait(m); }
           break;
         }
         case "work": {
@@ -274,6 +333,7 @@ export class Marshals {
             m.state = "idle";
             m.body.position.set(m.home.x, m.seated ? -SIT_DROP : 0, m.home.z); // re-seat or stand
             m.body.rotation.y = m.faceHome;
+            this.restGait(m);
           }
           break;
         }

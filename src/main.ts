@@ -29,6 +29,7 @@ import { Screens } from "./ui/Screens";
 import { Minimap } from "./ui/Minimap";
 import { MotorSound } from "./audio/MotorSound";
 import { loadCareer, saveCareer, resetCareer, awardPoints, standings, POINTS, loadPlayerName, savePlayerName, titleCaseName } from "./career/Career";
+import { CAR_CLASSES, CAR_CLASS_LIST, loadCarClass, saveCarClass, isCarClassId, type CarClassId } from "./car/CarClass";
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 const fpsEl = document.getElementById("fps") as HTMLDivElement;
@@ -65,9 +66,15 @@ async function boot() {
   const plugin = await initPhysics(scene);
   setBootProgress(50, "Building track…");
 
+  // --- Car class (chosen on the start screen; each class has its own career) ---
+  // `?class=sprint|latemodel` overrides the saved choice (dev/preview/share).
+  const classParam = new URLSearchParams(location.search).get("class");
+  const carClass: CarClassId = isCarClassId(classParam) ? classParam : loadCarClass();
+  const carClassDef = CAR_CLASSES[carClass];
+
   // --- Career round selection (needed up front so night lighting matches the track) ---
   const careerTracks = generateCareer();
-  const career = loadCareer();
+  const career = loadCareer(carClass);
   // `?round=N` (1-based) forces a specific career round — a dev/preview affordance
   // (like `?demo`) for eyeballing a given track's backdrop/layout without playing up to it.
   const roundParam = new URLSearchParams(location.search).get("round");
@@ -87,6 +94,13 @@ async function boot() {
   aerialCam.minZ = 0.2; aerialCam.maxZ = 6000; aerialCam.fov = 0.8;
   aerialCam.inputs.clear();
   aerialCam.setTarget(new Vector3(0, 0, 0));
+
+  // Photo camera: a close 3/4 view locked to the player car — a dev/share affordance to actually SEE
+  // the car (the screenshot-game skill's "show the car" need). Active only with `?photo`.
+  const photoMode = location.search.includes("photo");
+  const photoCam = new UniversalCamera("photo", new Vector3(0, 2, 6), scene);
+  photoCam.minZ = 0.05; photoCam.maxZ = 6000; photoCam.fov = 0.6;
+  photoCam.inputs.clear();
   env.pipeline.addCamera(aerialCam);
   // (the in-car / track / aerial view state + toggle is set up after the field is built, below)
 
@@ -116,7 +130,7 @@ async function boot() {
 
   const setup = loadSetup();
   const race = new RaceManager(track, def.laps);
-  const field = new Field(scene, plugin, shadow, track, def, race, setup);
+  const field = new Field(scene, plugin, shadow, track, def, race, setup, carClassDef);
   const player = race.racers.find((r) => r.isPlayer)!;
   // Trackside + pit marshals: stand around the track, and right cars that flip.
   const marshals = new Marshals(scene, track, shadow);
@@ -144,12 +158,13 @@ async function boot() {
   if (location.search.includes("streak")) buildStreaker();
 
   const input = new InputManager();
-  new SetupPanel(setup, (s) => { field.applyPlayerSetup(s); saveSetup(s); });
+  new SetupPanel(setup, (s) => { field.applyPlayerSetup(s); saveSetup(s); }, carClassDef.label);
   const minimap = new Minimap(hud, track);
 
   // Subtle procedural electric-motor sound for the PLAYER car. Browser autoplay rules require a
   // gesture, so the AudioContext only starts on the first click/keypress. Mute with M / HUD button.
   const motor = new MotorSound();
+  motor.setVoiceCount(field.cars.length - 1); // a light, panned whine for every AI car
   (window as any).__audio = motor;
   const muteBtn = document.getElementById("mute") as HTMLButtonElement | null;
   const reflectMute = () => { if (muteBtn) muteBtn.textContent = motor.muted ? "🔇" : "🔊"; };
@@ -170,6 +185,11 @@ async function boot() {
   try { scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", cockpit.camera); }
   catch { /* SSAO may be unavailable (headless) */ }
   (window as any).__cockpit = cockpit;
+
+  // Photo cam shares the post-FX so close-up shots look like the game.
+  env.pipeline.addCamera(photoCam);
+  try { scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", photoCam); }
+  catch { /* SSAO may be unavailable (headless) */ }
 
   type View = "normal" | "incar" | "aerial";
   const VIEW_LABEL: Record<View, string> = { incar: "🎥 In-Car", normal: "📺 Track", aerial: "🚁 Aerial" };
@@ -224,7 +244,7 @@ async function boot() {
     if (canAdvance) {
       career.unlocked = Math.max(career.unlocked, round + 1);
     }
-    saveCareer(career);
+    saveCareer(career, carClass);
     const isFinale = round >= careerTracks.length - 1;
     const champ = standings(career);
     Screens.results({
@@ -235,9 +255,9 @@ async function boot() {
       canAdvance,
       finishPos,
       champion: champ[0]?.name,
-      onNext: () => { career.round = Math.min(round + 1, careerTracks.length - 1); saveCareer(career); location.reload(); },
+      onNext: () => { career.round = Math.min(round + 1, careerTracks.length - 1); saveCareer(career, carClass); location.reload(); },
       onReplay: () => location.reload(),
-      onReset: () => { resetCareer(); location.reload(); },
+      onReset: () => { resetCareer(carClass); location.reload(); },
     });
   };
 
@@ -269,12 +289,20 @@ async function boot() {
         location.reload();
       });
     } else {
-      Screens.preRace(def, round, careerTracks.length, standings(career), startRacing);
+      // Choose the car class on open, then the pre-race menu. Switching class persists + reloads
+      // (so the field rebuilds with the new bodies/config/career), mirroring the attract→menu reload.
+      const openMenu = () => Screens.preRace(def, round, careerTracks.length, standings(career), startRacing);
+      Screens.classSelect(
+        carClass,
+        CAR_CLASS_LIST.map((c) => ({ id: c.id, label: c.label, subtitle: c.subtitle })),
+        (id) => { if (id !== carClass && isCarClassId(id)) { saveCarClass(id); location.reload(); } else openMenu(); },
+      );
     }
-    console.log(`[RCSprint] ready — round ${round + 1}: ${def.name} (${state})`);
+    console.log(`[RCSprint] ready — round ${round + 1}: ${def.name} (${state}, ${carClass})`);
   });
 
   const FIXED = 1 / 60; // physics step
+  const RIGHT = new Vector3(1, 0, 0); // local +x, for stereo-panning AI motors relative to the camera
   let physAcc = 0;
   let acc = 0;
   scene.onBeforeRenderObservable.add(() => {
@@ -293,6 +321,21 @@ async function boot() {
       }
       race.update(performance.now());
       motor.update(drive.throttle, field.playerVehicle.speed); // player-car electric whine
+      // Every other car: a light electric whine, stereo-panned + distance-faded to the active camera.
+      const camA = scene.activeCamera;
+      if (camA) {
+        const camPos = camA.globalPosition;
+        const camRight = camA.getDirection(RIGHT);
+        const vs: { speed: number; throttle: number; pan: number; gain: number }[] = [];
+        for (let i = 1; i < field.cars.length; i++) {
+          const v = field.cars[i].vehicle;
+          const dx = v.position.x - camPos.x, dy = v.position.y - camPos.y, dz = v.position.z - camPos.z;
+          const dist = Math.hypot(dx, dy, dz) || 1;
+          const pan = (dx * camRight.x + dy * camRight.y + dz * camRight.z) / dist;
+          vs.push({ speed: v.speed, throttle: Math.max(0, Math.min(1, v.debug.drive)), pan, gain: Math.max(0, 1 - dist / 70) });
+        }
+        motor.updateVoices(vs);
+      }
       if (player.finished) finalize();
     } else if (state === "attract") {
       // Run the AI field on a rubbered-in mid-race surface, drive the cinematic cam.
@@ -316,6 +359,21 @@ async function boot() {
       : view === "aerial" ? aerialCam
       : cam.camera;
     scene.activeCamera = state === "attract" ? cine.camera : live;
+    if (photoMode) {
+      // Lock a close rear-3/4 view onto the player car (shows the spoiler/sail/roof), heading-relative
+      // so it frames the car no matter which way it points.
+      const pp = field.playerVehicle.position;
+      const h = field.playerVehicle.heading;
+      const fwd = new Vector3(Math.sin(h), 0, Math.cos(h));
+      const right = new Vector3(Math.cos(h), 0, -Math.sin(h));
+      photoCam.position.set(
+        pp.x - fwd.x * 3.4 + right.x * 2.2,
+        pp.y + 1.5,
+        pp.z - fwd.z * 3.4 + right.z * 2.2,
+      );
+      photoCam.setTarget(new Vector3(pp.x, pp.y + 0.35, pp.z));
+      scene.activeCamera = photoCam;
+    }
     status.style.display = view === "aerial" ? "none" : ""; // the lower-left bar blocks the aerial corner
 
     if (state !== "racing") return; // no HUD work outside a live race

@@ -49,23 +49,36 @@ export interface Career {
   points: Record<string, number>; // championship totals by driver name
 }
 
-const KEY = "rcsprint.career";
+/** Each car class keeps an INDEPENDENT career under its own key. */
+export type CareerClassId = "sprint" | "latemodel";
+const LEGACY_KEY = "rcsprint.career";
+const careerKey = (cls: CareerClassId) => `${LEGACY_KEY}.${cls}`;
 
-export function loadCareer(): Career {
+export function loadCareer(cls: CareerClassId = "sprint"): Career {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(careerKey(cls));
     if (raw) return { round: 0, unlocked: 0, points: {}, ...JSON.parse(raw) };
+    // One-time migration: an old single-class save (pre car-classes) becomes the sprint career.
+    if (cls === "sprint") {
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (legacy) {
+        const c = { round: 0, unlocked: 0, points: {}, ...JSON.parse(legacy) } as Career;
+        saveCareer(c, cls);
+        try { localStorage.removeItem(LEGACY_KEY); } catch { /* ignore */ }
+        return c;
+      }
+    }
   } catch { /* ignore */ }
   return { round: 0, unlocked: 0, points: {} };
 }
 
-export function saveCareer(c: Career) {
-  try { localStorage.setItem(KEY, JSON.stringify(c)); } catch { /* ignore */ }
+export function saveCareer(c: Career, cls: CareerClassId = "sprint") {
+  try { localStorage.setItem(careerKey(cls), JSON.stringify(c)); } catch { /* ignore */ }
 }
 
-export function resetCareer(): Career {
+export function resetCareer(cls: CareerClassId = "sprint"): Career {
   const c: Career = { round: 0, unlocked: 0, points: {} };
-  saveCareer(c);
+  saveCareer(c, cls);
   return c;
 }
 

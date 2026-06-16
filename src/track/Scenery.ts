@@ -101,7 +101,7 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
     for (const sx of [1, -1]) {
       const slab = MeshBuilder.CreateBox("boothRoof" + sx, { width: BW * 0.64, height: 0.12, depth: BD + 0.5 }, scene);
       slab.position.set(sx * BW * 0.26, BH + 0.42, 0);
-      slab.rotation.z = sx * 0.62; slab.material = roofM; bCast(slab);
+      slab.rotation.z = -sx * 0.62; slab.material = roofM; bCast(slab); // inner edges rise to the ridge (gable ^, not a valley)
     }
     const ridge = MeshBuilder.CreateBox("boothRidge", { width: 0.16, height: 0.16, depth: BD + 0.5 }, scene);
     ridge.position.set(0, BH + 0.85, 0); ridge.material = roofM; bCast(ridge);
