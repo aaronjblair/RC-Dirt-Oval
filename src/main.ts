@@ -22,6 +22,7 @@ import { Field } from "./race/Field";
 import { Marshals } from "./race/Marshals";
 import { FlagGirl } from "./race/FlagGirl";
 import { buildLawnMower } from "./race/LawnMower";
+import { Streaker } from "./race/Streaker";
 import { loadSetup, saveSetup } from "./car/CarSetup";
 import { SetupPanel } from "./ui/SetupPanel";
 import { Screens } from "./ui/Screens";
@@ -124,6 +125,11 @@ async function boot() {
   // Easter egg: a guy on a red riding mower parked on the infield, just below the logo.
   buildLawnMower(scene, shadow, new Vector3(7, -0.02, -2), 0.7);
   setBootProgress(85, "Lighting the night…");
+
+  // Easter egg: built lazily when the driver name triggers it (see startRacing). `?streak` forces it.
+  let streaker: Streaker | null = null;
+  const buildStreaker = () => { streaker = streaker ?? new Streaker(scene, track, shadow); (window as any).__streaker = streaker; };
+  if (location.search.includes("streak")) buildStreaker();
 
   const input = new InputManager();
   new SetupPanel(setup, (s) => { field.applyPlayerSetup(s); saveSetup(s); });
@@ -229,6 +235,7 @@ async function boot() {
       const name = titleCaseName(raw);
       savePlayerName(name);
       player.name = name;
+      if (name.trim().toLowerCase() === "streaker lady") buildStreaker();
       Screens.countdown(() => { race.start(performance.now()); state = "racing"; flagGirl.greenFlag(); });
     });
   };
@@ -288,6 +295,7 @@ async function boot() {
     }
     if (state === "racing" || state === "attract") marshals.update(frameDt, field.cars);
     flagGirl.update(frameDt);
+    if (streaker && (state === "racing" || state === "attract")) streaker.update(frameDt);
     cam.update(field.playerVehicle.position, frameDt);
     if (view === "incar") cockpit.update(frameDt, field.playerVehicle);
     // Ride a flip externally (the driver-stand cam), not a spinning cockpit.
