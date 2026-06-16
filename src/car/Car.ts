@@ -31,11 +31,32 @@ export interface BuiltCar {
 
 const rgb = (c: Color3) => `rgb(${(c.r * 255) | 0},${(c.g * 255) | 0},${(c.b * 255) | 0})`;
 
-function paintMat(scene: Scene, name: string, color: Color3): PBRMaterial {
+/** Fine metalflake normal map (procedural): a tileable field of randomized micro-facet
+ *  normals so the clear-coated paint sparkles like real metal-flake RC bodywork. */
+function flakeNormal(scene: Scene): Texture {
+  const S = 256;
+  const dt = new DynamicTexture("flake", { width: S, height: S }, scene, false);
+  const ctx = dt.getContext() as CanvasRenderingContext2D;
+  const img = ctx.createImageData(S, S);
+  for (let i = 0; i < img.data.length; i += 4) {
+    img.data[i] = 128 + (Math.random() * 2 - 1) * 46;     // nx jitter
+    img.data[i + 1] = 128 + (Math.random() * 2 - 1) * 46; // ny jitter
+    img.data[i + 2] = 255;                                 // nz mostly up
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  dt.update();
+  dt.wrapU = Texture.WRAP_ADDRESSMODE; dt.wrapV = Texture.WRAP_ADDRESSMODE;
+  dt.uScale = 9; dt.vScale = 9; // tile small so the flake is fine
+  return dt;
+}
+
+function paintMat(scene: Scene, name: string, color: Color3, flake?: Texture): PBRMaterial {
   const m = new PBRMaterial(name, scene);
   m.albedoColor = color;
-  m.metallic = 0.1;
-  m.roughness = 0.32;
+  m.metallic = flake ? 0.5 : 0.1; // flake paint is more metallic so facets catch light
+  m.roughness = flake ? 0.34 : 0.32;
+  if (flake) { m.bumpTexture = flake; m.bumpTexture.level = 0.35; }
   m.clearCoat.isEnabled = true;
   m.clearCoat.intensity = 1.0;
   m.clearCoat.roughness = 0.06;
@@ -228,8 +249,9 @@ export function createCar(
   const name = logoUrl ? undefined : opts.name;
   const logoMat = logoUrl ? imageDecalMat(scene, "carlogo", logoUrl) : null;
 
-  const mPaint = paintMat(scene, "paint", color);
-  const mPaintDark = paintMat(scene, "paintD", color.scale(0.55));
+  const flake = flakeNormal(scene); // metalflake sparkle in the bodywork
+  const mPaint = paintMat(scene, "paint", color, flake);
+  const mPaintDark = paintMat(scene, "paintD", color.scale(0.55), flake);
   const mBlack = flatMat(scene, "blk", new Color3(0.05, 0.05, 0.06), 0.35, 0.1);
   const mCarbon = flatMat(scene, "carbon", new Color3(0.05, 0.05, 0.06), 0.4, 0.35);
   const mChrome = flatMat(scene, "chrome", new Color3(0.9, 0.9, 0.93), 0.06, 1.0);

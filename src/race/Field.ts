@@ -19,7 +19,7 @@ import type { DriveInput } from "../core/Input";
 import type { RaycastVehicle } from "../physics/RaycastVehicle";
 
 const PALETTE: { c: Color3; n: number }[] = [
-  { c: new Color3(0.96, 0.42, 0.04), n: 32 }, // Super Jay — orange #32 (the player car, a tribute)
+  { c: new Color3(0.62, 0.39, 0.26), n: 32 }, // Super Jay #32 — copper-orange matched to his logo (a tribute)
   { c: new Color3(0.1, 0.45, 0.95), n: 7 },
   { c: new Color3(0.95, 0.78, 0.1), n: 1 },
   { c: new Color3(0.1, 0.7, 0.35), n: 11 },
