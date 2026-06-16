@@ -76,6 +76,13 @@ export class InputManager {
     if (!coarse) return;
     this.isTouch = true;
     document.body.classList.add("touch-active"); // reflows the HUD (see index.html)
+    // Kill iOS Safari pinch-zoom: it ignores user-scalable=no, so a two-finger touch (steering while
+    // on the gas) would zoom/pan the visual viewport and scroll the fixed controls out of view. These
+    // gesture* events are Safari-only and fire ONLY for multi-finger zoom, so single-finger scrolling
+    // (the Guide overlay, the name input) is unaffected.
+    const noGesture = (e: Event) => e.preventDefault();
+    window.addEventListener("gesturestart", noGesture, { passive: false });
+    window.addEventListener("gesturechange", noGesture, { passive: false });
     const root = document.createElement("div");
     root.id = "touchControls";
     root.style.cssText =
@@ -86,13 +93,13 @@ export class InputManager {
     const pad = document.createElement("div");
     pad.style.cssText =
       "position:absolute;left:max(14px,env(safe-area-inset-left));bottom:max(18px,env(safe-area-inset-bottom));" +
-      "width:min(44vw,320px);height:104px;border-radius:18px;pointer-events:auto;" +
+      "width:min(44vw,320px);height:104px;border-radius:18px;pointer-events:auto;touch-action:none;" +
       "background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);" +
       "display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.45);font-size:12px;letter-spacing:2px;";
     pad.textContent = "◄  STEER  ►";
     const knob = document.createElement("div");
     knob.style.cssText =
-      "position:absolute;top:50%;left:50%;width:58px;height:58px;margin:-29px;border-radius:50%;" +
+      "position:absolute;top:50%;left:50%;width:58px;height:58px;margin:-29px;border-radius:50%;touch-action:none;" +
       "background:rgba(255,211,77,0.9);box-shadow:0 2px 12px rgba(0,0,0,0.55);transition:none;";
     pad.appendChild(knob);
     let steerId = -1;
@@ -107,6 +114,7 @@ export class InputManager {
     const endSteer = (e: PointerEvent) => { if (e.pointerId === steerId) { steerId = -1; this.touch.steer = 0; knob.style.left = "50%"; } };
     pad.addEventListener("pointerup", endSteer);
     pad.addEventListener("pointercancel", endSteer);
+    pad.addEventListener("lostpointercapture", endSteer); // re-center if the capture is revoked
     root.appendChild(pad);
 
     // --- Gas / brake pedals (bottom-right, stacked) + reset ---
@@ -114,15 +122,22 @@ export class InputManager {
       const b = document.createElement("div");
       b.style.cssText =
         `position:absolute;right:max(16px,env(safe-area-inset-right));bottom:${bottom};` +
-        "width:104px;height:104px;border-radius:50%;pointer-events:auto;" +
+        "width:104px;height:104px;border-radius:50%;pointer-events:auto;touch-action:none;" +
         `background:${bg};border:1px solid rgba(255,255,255,0.25);` +
         "display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:15px;";
       b.textContent = label;
       let id = -1;
-      b.addEventListener("pointerdown", (e) => { id = e.pointerId; b.setPointerCapture(e.pointerId); on(); b.style.filter = "brightness(1.45)"; e.preventDefault(); });
-      const end = (e: PointerEvent) => { if (e.pointerId === id) { id = -1; off(); b.style.filter = "none"; } };
+      const release = () => { id = -1; off(); b.style.filter = "none"; };
+      b.addEventListener("pointerdown", (e) => {
+        if (id !== -1) release(); // a fresh press while one is "stuck" — reset first, never hang on
+        id = e.pointerId; b.setPointerCapture(e.pointerId); on(); b.style.filter = "brightness(1.45)"; e.preventDefault();
+      });
+      const end = (e: PointerEvent) => { if (e.pointerId === id) release(); };
       b.addEventListener("pointerup", end);
       b.addEventListener("pointercancel", end);
+      // If the browser revokes the capture (gesture, focus loss), always fall back to released —
+      // otherwise the button would hang ON/bright and the next tap couldn't re-engage it.
+      b.addEventListener("lostpointercapture", end);
       root.appendChild(b);
       return b;
     };
@@ -132,7 +147,7 @@ export class InputManager {
     const rst = document.createElement("div");
     rst.style.cssText =
       "position:absolute;left:max(14px,env(safe-area-inset-left));bottom:calc(max(18px,env(safe-area-inset-bottom)) + 116px);" +
-      "padding:8px 14px;border-radius:10px;pointer-events:auto;background:rgba(0,0,0,0.45);" +
+      "padding:8px 14px;border-radius:10px;pointer-events:auto;touch-action:none;background:rgba(0,0,0,0.45);" +
       "border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:12px;font-weight:700;letter-spacing:1px;";
     rst.textContent = "RESET";
     rst.addEventListener("pointerdown", (e) => { this.touch.reset = true; e.preventDefault(); });

@@ -53,6 +53,7 @@ In-game: arrows/WASD drive, R reset, C aerial camera, G garage/setup, M mute eng
 - `Matrix.InvertToRef` is not static — use `matrix.invertToRef(out)`.
 - Camera `maxZ` must stay above the skybox size or the sky clips to black.
 - **Tires/wheels: no sidewall or shoulder mesh may exceed the tread radius.** A torus "bulge" sized past the tread reads as Mickey-Mouse ears. Revolve the tire carcass from a cross-section with `MeshBuilder.CreateLathe` (rounded shoulders, square-ish tread) and set the tire material `backFaceCulling = false` (a revolved surface is single-sided). Hoosier lettering goes on a thin sidewall disc with a punched-out center; the chrome **dished** wheel + center nut shows through.
+- **Mobile touch controls must set `touch-action:none` on EACH interactive element** (`Input.ts` `setupTouch` — pad/knob/GAS/BRAKE/RESET), not just the `#touchControls` root: `touch-action` is **not inherited**, and the root is `pointer-events:none` so the touches land on the children. Miss it and a **second finger** (steering while on the gas — happens mid-corner) lets the browser pinch/pan the visual viewport (iOS ignores `user-scalable=no` for zoom), scrolling the `position:fixed` buttons out of view — they "disappear" — and firing `pointercancel` that drops throttle. Also guard iOS `gesturestart`/`gesturechange` (preventDefault) and bind `lostpointercapture` so a revoked capture always releases (no stuck/unresponsive button).
 
 ## Windows / PowerShell
 - `npm` is `npm.cmd` — `Start-Process "npm"` fails. Run `npm run dev` as a background process instead.
