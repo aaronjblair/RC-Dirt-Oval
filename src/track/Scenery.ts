@@ -19,6 +19,24 @@ export interface SceneryHandles {
   standPosition: Vector3;
 }
 
+/** A simple standing spectator (legs, torso, head) at (x,y,z), facing the track. Static. */
+function buildSpectator(
+  scene: Scene, i: number, x: number, y: number, z: number, shirt: Color3,
+  cast: (m: Mesh) => void,
+): void {
+  const skin = mat(scene, "spsk" + i, new Color3(0.82, 0.62, 0.5));
+  const dark = mat(scene, "spdk" + i, new Color3(0.14, 0.14, 0.17));
+  const top = mat(scene, "sptp" + i, shirt, 0.6);
+  const place = (m: Mesh, material: PBRMaterial, px: number, py: number, pz: number) => {
+    m.material = material; m.position.set(px, py, pz); cast(m);
+  };
+  for (const s of [0.1, -0.1]) {
+    place(MeshBuilder.CreateCylinder("spleg" + i + s, { diameter: 0.16, height: 0.8, tessellation: 8 }, scene), dark, x, y + 0.4, z + s);
+  }
+  place(MeshBuilder.CreateCapsule("sptor" + i, { radius: 0.2, height: 0.62, tessellation: 10 }, scene), top, x, y + 1.05, z);
+  place(MeshBuilder.CreateSphere("sphead" + i, { diameter: 0.28, segments: 10 }, scene), skin, x, y + 1.52, z);
+}
+
 /** Drivers' stand, grandstands, light towers and a start/finish gantry. */
 export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGenerator | null, night = false): SceneryHandles {
   const R = track.def.cornerRadius;
@@ -37,19 +55,33 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
     m.freezeWorldMatrix(); // static scenery — skip per-frame matrix work
   };
 
-  // --- Drivers' stand on the front straight (outside +x), centered at z=0 ---
+  // --- Raised drivers' walkway on the front straight (outside +x), centered at z=0:
+  //     an open elevated platform (no roof) with rails and 8 people watching the track ---
   const standX = outerX + 6;
   const standY = 5;
-  const deck = MeshBuilder.CreateBox("standDeck", { width: 5, height: 0.3, depth: 12 }, scene);
+  const deck = MeshBuilder.CreateBox("standDeck", { width: 3.2, height: 0.25, depth: 13 }, scene);
   deck.position.set(standX, standY, 0); deck.material = steel; cast(deck);
-  for (const dz of [-5.5, 5.5]) for (const dx of [-2, 2]) {
-    const leg = MeshBuilder.CreateBox("standLeg", { width: 0.3, height: standY, depth: 0.3 }, scene);
+  for (const dz of [-6, 0, 6]) for (const dx of [-1.3, 1.3]) {
+    const leg = MeshBuilder.CreateBox("standLeg", { width: 0.25, height: standY, depth: 0.25 }, scene);
     leg.position.set(standX + dx, standY / 2, dz); leg.material = steel; cast(leg);
   }
-  const rail = MeshBuilder.CreateBox("standRail", { width: 0.1, height: 1, depth: 12 }, scene);
-  rail.position.set(standX - 2.4, standY + 0.65, 0); rail.material = steel; cast(rail);
-  const roof = MeshBuilder.CreateBox("standRoof", { width: 5.5, height: 0.15, depth: 13 }, scene);
-  roof.position.set(standX, standY + 3, 0); roof.material = mat(scene, "roof", new Color3(0.25, 0.25, 0.28), 0.5); cast(roof);
+  // rails front (track side) and back, plus posts, so it reads as a walkway
+  for (const dx of [-1.5, 1.5]) {
+    const rail = MeshBuilder.CreateBox("standRail" + dx, { width: 0.08, height: 0.08, depth: 13 }, scene);
+    rail.position.set(standX + dx, standY + 1.0, 0); rail.material = steel; cast(rail);
+    const kick = MeshBuilder.CreateBox("standKick" + dx, { width: 0.06, height: 0.4, depth: 13 }, scene);
+    kick.position.set(standX + dx, standY + 0.35, 0); kick.material = steel; cast(kick);
+  }
+  // 8 people standing along the track-side rail, facing the track (-x)
+  const shirts = [
+    new Color3(0.8, 0.2, 0.2), new Color3(0.2, 0.4, 0.8), new Color3(0.9, 0.75, 0.2),
+    new Color3(0.2, 0.6, 0.35), new Color3(0.85, 0.85, 0.9), new Color3(0.7, 0.4, 0.1),
+    new Color3(0.5, 0.2, 0.7), new Color3(0.15, 0.6, 0.7),
+  ];
+  for (let i = 0; i < 8; i++) {
+    const z = -5.6 + i * (11.2 / 7); // spread across the walkway
+    buildSpectator(scene, i, standX - 1.3, standY + 0.13, z, shirts[i], cast);
+  }
 
   // --- Surrounding landscape floor (under the 400m infield) so distant scenery
   //     sits on real ground out to the horizon instead of floating over void ---

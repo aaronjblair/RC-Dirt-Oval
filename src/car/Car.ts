@@ -449,7 +449,14 @@ export function createCar(
   // BIG swept side boards spanning the whole wing.
   for (const sx of [1, -1]) {
     add(wingSideBoard(scene, "plate" + sx, sx, WW / 2), mBoard, wingPivot as unknown as TransformNode);
-    if (!logoUrl) {
+    if (logoMat) {
+      // Hero: the Super Jay 32 logo on the side board, upright (so the "32" is horizontal).
+      const lh = 0.66, lw = lh * logoAspect;
+      const lp = add(MeshBuilder.CreatePlane("wlogo" + sx, { width: lw, height: lh }, scene), logoMat, wingPivot as unknown as TransformNode);
+      lp.rotation.y = sx > 0 ? -Math.PI / 2 : Math.PI / 2; // face outward
+      lp.scaling.x = sx; // un-mirror the left side
+      lp.position.set((WW / 2) * sx + sx * 0.01, 0.13, -0.4);
+    } else {
       // AI: a number panel on the rear-upper of the board, facing outward.
       const np = add(MeshBuilder.CreatePlane("wnum" + sx, { width: 0.66, height: 0.42 }, scene),
         decalMat(scene, "wnum" + sx, 512, 256, wingSideDraw(color, num), sx < 0, true), wingPivot as unknown as TransformNode);
@@ -468,7 +475,7 @@ export function createCar(
   // --- Front wing: white-edged foil + black endplates ---
   const FWW = 1.12, FWD = 0.48; // front wing span + chord
   const fwPivot = new TransformNode("fwPivot", scene); fwPivot.parent = root;
-  fwPivot.position.set(0, 0.12, 1.34); fwPivot.rotation.x = -0.16;
+  fwPivot.position.set(0, 0.12, 1.34); fwPivot.rotation.x = 0.22; // slopes down toward the front (nose-down for front grip)
   add(MeshBuilder.CreateBox("frontFoil", { width: FWW, height: 0.035, depth: FWD }, scene), mPaint, fwPivot as unknown as TransformNode);
   // body-colour leading stripe + black wickerbill at the trailing edge
   add(MeshBuilder.CreateBox("frontStripe", { width: FWW, height: 0.012, depth: 0.12 }, scene), mPaintDark, fwPivot as unknown as TransformNode).position.set(0, 0.024, FWD / 2 - 0.07);
