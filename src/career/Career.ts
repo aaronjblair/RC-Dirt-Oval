@@ -1,11 +1,16 @@
 /** Championship points by finishing position (1st .. 12th). */
 export const POINTS = [25, 20, 16, 13, 11, 9, 7, 5, 4, 3, 2, 1];
 
-/** Car numbers per grid slot; slot 0 is the player (#22). Matches Field palette. */
-export const DRIVER_NUMBERS = [22, 7, 1, 11, 24, 9, 4, 15, 17, 2];
+/** Car numbers per grid slot; slot 0 is the player — Super Jay's #32. Matches Field palette. */
+export const DRIVER_NUMBERS = [32, 7, 1, 11, 24, 9, 4, 15, 17, 2];
+
+/** Named drivers by grid slot: Super Jay (the player's tribute car), then Aaron Blair,
+ *  then Carl Vandruff; the rest race under their car numbers. */
+export const DRIVER_NAMES = ["Super Jay", "Aaron Blair", "Carl Vandruff"];
 
 export function driverName(index: number): string {
-  return index === 0 ? "#22 (You)" : `#${DRIVER_NUMBERS[index] ?? index}`;
+  if (index < DRIVER_NAMES.length) return DRIVER_NAMES[index];
+  return `#${DRIVER_NUMBERS[index] ?? index}`;
 }
 
 export interface Career {

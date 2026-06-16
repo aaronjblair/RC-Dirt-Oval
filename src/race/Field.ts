@@ -18,7 +18,7 @@ import type { DriveInput } from "../core/Input";
 import type { RaycastVehicle } from "../physics/RaycastVehicle";
 
 const PALETTE: { c: Color3; n: number }[] = [
-  { c: new Color3(0.9, 0.08, 0.12), n: 22 },
+  { c: new Color3(0.96, 0.42, 0.04), n: 32 }, // Super Jay — orange #32 (the player car, a tribute)
   { c: new Color3(0.1, 0.45, 0.95), n: 7 },
   { c: new Color3(0.95, 0.78, 0.1), n: 1 },
   { c: new Color3(0.1, 0.7, 0.35), n: 11 },
@@ -34,7 +34,7 @@ const PALETTE: { c: Color3; n: number }[] = [
 export class Field {
   cars: BuiltCar[] = [];
   private ai: (AIDriver | null)[] = [];
-  private attractAI: AIDriver | null = null; // drives the #22 slot during the attract reel
+  private attractAI: AIDriver | null = null; // drives the player slot (Super Jay #32) during the attract reel
   private vehicles: RaycastVehicle[] = [];
   private wear: number[] = [];
   private wearRate: number[] = [];
@@ -62,7 +62,7 @@ export class Field {
     for (let i = 0; i < n; i++) {
       const grid = track.gridPose(i);
       const p = PALETTE[i];
-      const car = createCar(scene, plugin, shadow, { color: p.c, number: p.n, spawn: grid.pos, yaw: grid.yaw });
+      const car = createCar(scene, plugin, shadow, { color: p.c, number: p.n, spawn: grid.pos, yaw: grid.yaw, name: i === 0 ? "Super Jay" : undefined });
       this.cars.push(car);
       this.vehicles.push(car.vehicle);
       this.wear.push(0);
@@ -152,7 +152,7 @@ export class Field {
     this.postStep(dt);
   }
 
-  /** Attract reel: every car (including the #22 slot) is AI-driven for a cinematic. */
+  /** Attract reel: every car (including Super Jay's #32) is AI-driven for a cinematic. */
   attractUpdate(dt: number, raceFraction: number) {
     this.surface.update(raceFraction);
     const states = this.projectStates();

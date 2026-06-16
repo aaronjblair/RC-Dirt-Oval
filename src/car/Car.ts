@@ -16,6 +16,7 @@ export interface CarOptions {
   number?: number;
   spawn?: Vector3;
   yaw?: number;
+  name?: string; // driver/livery name lettered on the wing deck + body sides
 }
 
 export interface BuiltCar {
@@ -64,7 +65,7 @@ function decalMat(scene: Scene, name: string, w: number, h: number, draw: Draw, 
 
 /** Body side livery: car-color base, black lower swoosh, white lightning streak,
  *  numbered roundel and "RACE INSPIRED" — the Losi 22S graphic language. */
-function liverySideDraw(color: Color3, num: number): Draw {
+function liverySideDraw(color: Color3, num: number, name?: string): Draw {
   return (ctx, w, h) => {
     ctx.fillStyle = rgb(color); ctx.fillRect(0, 0, w, h);
     // black lower wedge
@@ -82,9 +83,10 @@ function liverySideDraw(color: Color3, num: number): Draw {
     ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = "#0b0b0d"; ctx.font = `bold ${r * 1.5}px "Arial Black", Arial, sans-serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(String(num), cx, cy + 2);
-    // RACE INSPIRED
-    ctx.fillStyle = "#fff"; ctx.font = `bold ${h * 0.12}px Arial, sans-serif`;
-    ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText("RACE INSPIRED", w - 12, h - 10);
+    // driver name (a tribute when set) or the stock "RACE INSPIRED"
+    const label = name ? name.toUpperCase() : "RACE INSPIRED";
+    ctx.fillStyle = "#fff"; ctx.font = `bold ${h * (name ? 0.17 : 0.12)}px "Arial Black", Arial, sans-serif`;
+    ctx.textAlign = "right"; ctx.textBaseline = "bottom"; ctx.fillText(label, w - 12, h - 10);
   };
 }
 
@@ -100,14 +102,18 @@ function wingSideDraw(color: Color3, num: number): Draw {
   };
 }
 
-/** Wing top deck: black with a center color chord stripe and sponsor text. */
-function wingDeckDraw(color: Color3): Draw {
+/** Wing top deck: black with a center color chord stripe and the car's name (the
+ *  most visible surface from the driver-stand view, so the tribute reads here). */
+function wingDeckDraw(color: Color3, label = "RCSPRINT"): Draw {
   return (ctx, w, h) => {
     ctx.fillStyle = "#0b0b0d"; ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = rgb(color); ctx.fillRect(0, h * 0.38, w, h * 0.24);
-    ctx.fillStyle = "#fff"; ctx.font = `bold ${h * 0.16}px Arial, sans-serif`;
+    ctx.fillStyle = rgb(color); ctx.fillRect(0, h * 0.34, w, h * 0.32);
+    ctx.fillStyle = "#fff"; ctx.font = `bold ${h * 0.22}px "Arial Black", Arial, sans-serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("RCSPRINT", w * 0.5, h * 0.5);
+    // black outline so the name pops against the colour stripe
+    ctx.lineWidth = h * 0.03; ctx.strokeStyle = "#0b0b0d"; ctx.lineJoin = "round";
+    ctx.strokeText(label.toUpperCase(), w * 0.5, h * 0.52);
+    ctx.fillText(label.toUpperCase(), w * 0.5, h * 0.52);
   };
 }
 
@@ -197,6 +203,7 @@ export function createCar(
 ): BuiltCar {
   const color = opts.color ?? new Color3(0.85, 0.12, 0.12);
   const num = opts.number ?? 22;
+  const name = opts.name;
 
   const mPaint = paintMat(scene, "paint", color);
   const mPaintDark = paintMat(scene, "paintD", color.scale(0.55));
@@ -229,7 +236,7 @@ export function createCar(
   // Body side livery panels (correct text on both sides)
   for (const sx of [1, -1]) {
     const panel = add(MeshBuilder.CreateBox("livery" + sx, { width: 0.02, height: 0.42, depth: 0.95 }, scene),
-      decalMat(scene, "livery" + sx, 512, 256, liverySideDraw(color, num), sx < 0), root);
+      decalMat(scene, "livery" + sx, 512, 256, liverySideDraw(color, num, name), sx < 0), root);
     panel.position.set(0.355 * sx, 0.02, -0.1);
   }
 
@@ -307,7 +314,7 @@ export function createCar(
   const wingPivot = new TransformNode("wingPivot", scene); wingPivot.parent = root;
   wingPivot.position.set(0, 0.99, -0.4); wingPivot.rotation.x = -0.18;
   const deck = add(MeshBuilder.CreateBox("topDeck", { width: 1.62, height: 0.04, depth: 1.04 }, scene),
-    decalMat(scene, "wdeck", 512, 256, wingDeckDraw(color)), wingPivot as unknown as TransformNode);
+    decalMat(scene, "wdeck", 512, 256, wingDeckDraw(color, name ?? "RCSPRINT")), wingPivot as unknown as TransformNode);
   deck.position.set(0, 0, 0);
   // drooped leading lip fakes the foil's camber so the wing isn't a flat slab
   const lead = add(MeshBuilder.CreateBox("wlead", { width: 1.62, height: 0.035, depth: 0.2 }, scene), mPaintDark, wingPivot as unknown as TransformNode);

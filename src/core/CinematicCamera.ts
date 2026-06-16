@@ -5,7 +5,7 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 /**
  * Attract-mode "broadcast director": a single camera that cuts between four
  * cinematic shots of the AI field — a slow crane orbit, a low trackside rise,
- * a chase behind the hero (#22), and a flyby dolly across the pack. Positions
+ * a chase behind the hero (Super Jay #32), and a flyby dolly across the pack. Positions
  * are eased each frame so every shot drifts smoothly like real TV coverage.
  */
 export class CinematicCamera {
