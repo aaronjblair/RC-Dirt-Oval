@@ -26,7 +26,7 @@ import { SetupPanel } from "./ui/SetupPanel";
 import { Screens } from "./ui/Screens";
 import { Minimap } from "./ui/Minimap";
 import { MotorSound } from "./audio/MotorSound";
-import { loadCareer, saveCareer, resetCareer, awardPoints, standings, POINTS } from "./career/Career";
+import { loadCareer, saveCareer, resetCareer, awardPoints, standings, POINTS, loadPlayerName, savePlayerName, titleCaseName } from "./career/Career";
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
 const fpsEl = document.getElementById("fps") as HTMLDivElement;
@@ -34,12 +34,22 @@ const loadingEl = document.getElementById("loading") as HTMLDivElement;
 const hud = document.getElementById("hud") as HTMLDivElement;
 const el = (id: string) => document.getElementById(id) as HTMLElement;
 
+// Drive the boot/loading progress bar (app build status — engine → physics → track → ready).
+// Havok exposes no byte-level progress, so we advance in stages, smoothed by the bar's CSS transition.
+const loadFill = document.getElementById("loadFill") as HTMLDivElement | null;
+const loadLabel = document.getElementById("loadLabel") as HTMLDivElement | null;
+const setBootProgress = (pct: number, label: string) => {
+  if (loadFill) loadFill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+  if (loadLabel) loadLabel.textContent = label;
+};
+
 const SCALE_MPH = 2.5;
 const fmt = (t: number) => (t > 0 ? t.toFixed(2) : "--");
 
 type State = "attract" | "prerace" | "racing" | "finished";
 
 async function boot() {
+  setBootProgress(10, "Starting engine…");
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true }, true);
   // Desktop renders at CSS size. Phones (coarse pointer) render at ~2x CSS pixels — sharp on a
   // retina screen without paying for the full 3x device-pixel-ratio (keeps it smooth and crisp).
@@ -49,7 +59,9 @@ async function boot() {
   engine.setHardwareScalingLevel(coarsePointer ? Math.min(1.8, Math.max(1.3, dpr / 2)) : 1);
 
   const scene = new Scene(engine);
+  setBootProgress(20, "Loading physics…");
   const plugin = await initPhysics(scene);
+  setBootProgress(50, "Building track…");
 
   // --- Career round selection (needed up front so night lighting matches the track) ---
   const careerTracks = generateCareer();
@@ -111,6 +123,7 @@ async function boot() {
   const flagGirl = new FlagGirl(scene, track, shadow);
   // Easter egg: a guy on a red riding mower parked on the infield, just below the logo.
   buildLawnMower(scene, shadow, new Vector3(7, -0.02, -2), 0.7);
+  setBootProgress(85, "Lighting the night…");
 
   const input = new InputManager();
   new SetupPanel(setup, (s) => { field.applyPlayerSetup(s); saveSetup(s); });
@@ -181,11 +194,20 @@ async function boot() {
   };
 
   const startRacing = () => {
-    Screens.countdown(() => { race.start(performance.now()); state = "racing"; flagGirl.greenFlag(); });
+    // Optional name entry (pre-filled "Super Jay") → personalize the player's leaderboard name.
+    Screens.namePrompt(loadPlayerName(), (raw) => {
+      const name = titleCaseName(raw);
+      savePlayerName(name);
+      player.name = name;
+      Screens.countdown(() => { race.start(performance.now()); state = "racing"; flagGirl.greenFlag(); });
+    });
   };
 
   scene.executeWhenReady(() => {
-    loadingEl.style.display = "none";
+    setBootProgress(100, "Ready");
+    // Fade the splash out, then remove it from the layout (the bar finishes filling first).
+    loadingEl.style.opacity = "0";
+    setTimeout(() => { loadingEl.style.display = "none"; }, 360);
     if (state === "racing") {
       race.start(performance.now()); flagGirl.greenFlag(); // ?demo — straight into a live race
     } else if (state === "attract") {

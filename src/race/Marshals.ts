@@ -88,6 +88,22 @@ function marshalLooks(): Look[] {
   ];
 }
 
+/** Eight distinct fan looks for the drivers'-stand crowd (some ball caps, some long hair, varied
+ *  shirts/skin/hair) — reuses the same `buildPerson` machinery as the marshals. */
+export function spectatorLooks(): Look[] {
+  const C = (r: number, g: number, b: number) => new Color3(r, g, b);
+  return [
+    { shirt: C(0.80, 0.18, 0.18), pants: C(0.16, 0.18, 0.24), skin: C(0.86, 0.67, 0.53), hair: C(0.10, 0.08, 0.06), hat: true,  longHair: false }, // red tee, ball cap
+    { shirt: C(0.20, 0.40, 0.78), pants: C(0.20, 0.20, 0.22), skin: C(0.58, 0.42, 0.31), hair: C(0.06, 0.05, 0.05), hat: false, longHair: true  }, // blue, black long hair
+    { shirt: C(0.92, 0.78, 0.22), pants: C(0.14, 0.13, 0.13), skin: C(0.90, 0.74, 0.62), hair: C(0.55, 0.40, 0.16), hat: true,  longHair: false }, // yellow, cap
+    { shirt: C(0.22, 0.58, 0.34), pants: C(0.22, 0.20, 0.16), skin: C(0.48, 0.34, 0.25), hair: C(0.66, 0.66, 0.68), hat: false, longHair: false }, // green, gray hair
+    { shirt: C(0.86, 0.86, 0.90), pants: C(0.12, 0.20, 0.30), skin: C(0.84, 0.64, 0.50), hair: C(0.80, 0.66, 0.34), hat: false, longHair: true  }, // white, blonde long hair
+    { shirt: C(0.70, 0.38, 0.10), pants: C(0.16, 0.16, 0.18), skin: C(0.62, 0.45, 0.34), hair: C(0.30, 0.18, 0.09), hat: true,  longHair: false }, // burnt-orange, cap
+    { shirt: C(0.52, 0.22, 0.72), pants: C(0.24, 0.22, 0.20), skin: C(0.95, 0.78, 0.66), hair: C(0.42, 0.16, 0.08), hat: false, longHair: true  }, // purple, auburn long hair
+    { shirt: C(0.14, 0.58, 0.68), pants: C(0.18, 0.18, 0.20), skin: C(0.55, 0.40, 0.30), hair: C(0.08, 0.07, 0.06), hat: true,  longHair: false }, // teal, cap
+  ];
+}
+
 /** A folding camp chair: seat + back + four legs. Root at the feet; scaled by the caller. */
 function buildChair(scene: Scene, name: string, mt: PBRMaterial, shadow: ShadowGenerator | null): TransformNode {
   const root = new TransformNode(name, scene);

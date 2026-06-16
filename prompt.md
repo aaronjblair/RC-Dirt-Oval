@@ -36,6 +36,10 @@ fields of winged sprint cars. **Audio:** one subtle procedural electric-motor wh
   real-world speed when FPS dips. Each step: `Field.update(dt, input, raceFraction)`.
 - Single entry point `main.ts` with a game-flow state machine: `attract → prerace → racing →
   finished`. Expose `window.__field/__track/__race/__marshals` for tests.
+- **Boot/loading progress bar**: the `#loading` splash is a real app-build bar (`setBootProgress`,
+  staged engine→physics→track→ready 10/20/50/85/100%) that fades out when the scene is ready.
+- **START name prompt**: clicking START opens a name box pre-filled with the saved player name
+  (default "Super Jay"); title-case + persist it, set `player.name`, then run the countdown.
 
 ## WORLD SCALE (the rule that prevents the recurring sizing bug)
 **Only the cars and the track are 1:10 scale. Everything else is FULL REAL-WORLD size** —
@@ -100,7 +104,9 @@ floating/clipping. Build procedurally (`Car.ts`):
   placement so big tires don't sink/float.
 - PBR paint + clearcoat; per-side liveries on canvas DynamicTextures (mirror text on the left).
 - Hero car = **Super Jay's orange #32** (plain-orange body, small "Super Jay" by the cockpit,
-  his logo laid on the all-orange wing). Field led by Super Jay, Aaron Blair, Carl Vandruff.
+  his logo laid on the all-orange wing). Player driver name from a START prompt (pre-filled
+  "Super Jay", title-cased + saved); AI run **stable random full names** (`AI_NAMES` in Career.ts)
+  so the championship (points keyed by name) stays coherent.
 - **After ANY change to car building / wheel placement / spawning, screenshot the full grid and
   verify before calling it done.**
 
@@ -123,7 +129,8 @@ floating/clipping. Build procedurally (`Car.ts`):
   `TransformNode` root; freeze static meshes; animated parts go under a child pivot.
 
 ## Scenery & night sky (`Scenery.ts`, `Environment.ts`)
-- Real-size **drivers' stand** (~5u/5 ft deck, rails, ~8 spectators) on the front straight; a
+- Real-size **drivers' stand** (~5u/5 ft deck, rails, ~8 **varied full-size spectators** built via
+  the marshals' `buildPerson`/`spectatorLooks` — arms, varied shirts, some caps, some long hair) on the front straight; a
   small roofed **timing booth/shack** (~9u, dark-gray gable roof) beside it on the +z end; a
   start/finish gantry; **6 light towers** (4 corners + 2 mid-straight) whose PointLights light
   only at night.

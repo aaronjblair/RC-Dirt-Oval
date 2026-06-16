@@ -75,6 +75,29 @@ export const Screens = {
     return p;
   },
 
+  /** Optional driver-name entry shown after START. The box is pre-filled with `defaultName`
+   *  ("Super Jay" by default); keep it or type your own. Blank → default. `onSubmit` gets the raw
+   *  text (the caller title-cases it). */
+  namePrompt(defaultName: string, onSubmit: (raw: string) => void): HTMLDivElement {
+    const p = panel(
+      `<div style="font-size:22px;font-weight:800;color:#ffd34d;margin-bottom:4px">Driver name</div>
+       <div style="font-size:12px;color:#c8d0da;margin-bottom:14px">Enter your name for the leaderboard, or leave it as is.</div>
+       <input id="scName" type="text" maxlength="22" autocomplete="off"
+         style="display:block;width:100%;box-sizing:border-box;padding:12px;border:1px solid #2a3340;border-radius:10px;
+         background:#0c0f14;color:#eef2f7;font-size:16px;font-family:inherit;outline:none" />
+       <button id="scNameGo" style="${BTN}">GO</button>`
+    );
+    const input = p.querySelector("#scName") as HTMLInputElement;
+    input.value = defaultName;
+    let done = false;
+    const submit = () => { if (done) return; done = true; const raw = input.value; p.remove(); onSubmit(raw); };
+    (p.querySelector("#scNameGo") as HTMLButtonElement).onclick = submit;
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } });
+    // Focus + select so the user can immediately type over the default.
+    setTimeout(() => { input.focus(); input.select(); }, 0);
+    return p;
+  },
+
   countdown(onGo: () => void) {
     const d = document.createElement("div");
     d.style.cssText =

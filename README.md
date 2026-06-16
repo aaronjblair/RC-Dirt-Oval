@@ -10,12 +10,14 @@ A browser 3D **1/10-scale dirt-oval RC sprint car racing game**, modeled on the 
 - **Track marshals** — **6 hi-vis marshals: 2 sit in camp chairs at the two infield ends, and 4 stand outside the track at the corners** (evenly spread, turns 1–4). When a car **wrecks** (stuck upside down) or **stalls** (stopped/pointing the wrong way), the **nearest available** one gets up/jogs across traffic and **places it back on the racing line — upright, facing race direction, ready to continue** — then returns to its post. The marshals all look a little different (varied shirts, hair, and caps).
 - **Subtle electric-motor sound** — the cars are electric, so the player's #32 has a **procedural brushless-RC whine** (Web Audio): a motor note + ESC/PWM "scream" whose pitch rises with throttle and speed, with a faint tire-on-dirt hiss — kept deliberately subtle. It starts on your first click/keypress (browser autoplay rules); **mute with `M` or the 🔊 button** (remembered). AI cars stay silent.
 - **A flag girl starts every race** — a starter at the start/finish line waves the green flag to send the field off.
-- **You drive Super Jay's #32** — the player car is the vibrant **orange #32**: a plain-orange body with a small "Super Jay" by the cockpit and his **logo on top of the all-orange wing** (reading along the car as it passes); the field is led by Super Jay, Aaron Blair, and Carl Vandruff.
+- **You drive Super Jay's #32** — the player car is the vibrant **orange #32**: a plain-orange body with a small "Super Jay" by the cockpit and his **logo on top of the all-orange wing** (reading along the car as it passes).
+- **Name your driver** — clicking **START** pops a quick name box (pre-filled **"Super Jay"** — keep it or type your own; blank stays "Super Jay"). Your name is title-cased, remembered between sessions, and shows on the leaderboard. The rest of the field race under **random full names** (e.g. Dale Hutchins, Rusty Calhoun) — stable per grid slot so the season championship adds up.
+- **App loading bar** — a clean **RCSPRINT** splash with a progress bar fills as the app boots (engine → physics → track → ready), then fades into the game.
 - **Driver's manual** — a polished in-game documentation overlay (controls, racecraft, setup, career) opens from the title screen and the pre-race panel; works on desktop and phone.
 - **Cinematic attract intro** — open the app and a TV-style "broadcast" reel plays (AI field racing, cutting between a crane orbit, low trackside, a chase cam, and a flyby); click or press any key to enter the menu.
 - **15-track career/championship** — progressively harder dirt ovals that **always roll on to the next track**. The game currently runs **at night** the whole way (forced via `def.night`): a dark sky with a crescent **moon** and a **starfield** (the **Big Dipper** picked out overhead), lit by **6 lamp towers** (four corners + two mid-straight). (The calendar's day/night rounds — night at 8/12/15 — return if that force-night line is removed.)
 - **Full 8–12-car fields** (a random count each race) of winged sprint cars modeled on a real winged dirt sprinter — the **huge top wing** with a down-swept front scoop and tall number side boards, **big staggered tires** (biggest on the right-rear) on **orange beadlock wheels**, a detailed tube front end (axle, 4-bar radius rods, tie rod, front wing), nerf bars, and a roll cage with driver. Lettered **Hoosier** dirt slicks, right-rear rooster-tail dust, and **drafting/slingshot** pack racing.
-- **A different horizon every round** — each track has its own dirt color and a distinct themed backdrop: red-rock mesas, pine forest, open plains (silos + barn), city skyline, sand dunes, or striped badlands, on a landscape that runs to the horizon. A **grassed infield** carries a large speedway logo sprayed boldly across the surface — with a guy on a red riding mower parked by it for fun. A roofed **timing booth/shack** (dark-gray gable roof) sits beside the drivers' stand on the +z end.
+- **A different horizon every round** — each track has its own dirt color and a distinct themed backdrop: red-rock mesas, pine forest, open plains (silos + barn), city skyline, sand dunes, or striped badlands, on a landscape that runs to the horizon. A **grassed infield** carries a large speedway logo sprayed boldly across the surface — with a guy on a red riding mower parked by it for fun. A roofed **timing booth/shack** (dark-gray gable roof) sits beside the drivers' stand on the +z end, with a row of **varied full-size spectators** up on the deck — different shirts, some in ball caps, some with long hair.
 - **A toy on a real track** — only the **cars and the track** are 1:10 scale; every person, prop, and building (marshals, flag girl, stand, timing booth, lawnmower rider) is **full real-world size** (~1 unit ≈ 1 foot; a standing adult ≈ 5.7u, stand deck ≈ 5u, shack ≈ 9u), so the people clearly tower over the toy cars.
 - **Live HUD** — lap/position, **interval gaps** to the cars ahead/behind, last vs best lap, tire wear, track state, minimap.
 - **Gamepad / yoke + pedals primary, keyboard fallback.**
@@ -58,7 +60,7 @@ A workflow at `.github/workflows/deploy.yml` builds and publishes the game on ev
 index.html              # canvas + HUD shell
 src/
   main.ts               # entry point + game-flow state machine (attract → prerace → racing → finished),
-                        # fixed-timestep loop (1/60), camera + HUD wiring
+                        # fixed-timestep loop (1/60), camera + HUD wiring, boot progress bar, START name prompt
   core/
     Environment.ts      # IBL, ACES tonemap, bloom, SSAO2, SkyMaterial — day and night setups (night: dark sky, crescent moon + starfield incl. the Big Dipper, lit towers)
     Textures.ts         # procedural dirt (canvas) + bundled PBR dirt; dust sprite
@@ -78,16 +80,16 @@ src/
     OvalTrack.ts        # builds a banked stadium oval + grassed infield (large sprayed speedway logo) + centerline helpers (project/gridPose)
     tracks.ts           # generateCareer() — the 15-round calendar (night rounds 8/12/15)
     SurfaceModel.ts     # grip evolution over a race (tacky → groove → slick) — invisible; the surface is painted one uniform brown
-    Scenery.ts          # drivers' stand + timing booth/shack, themed horizon backdrop (mesas/forest/plains/city/dunes/badlands) + world floor, 6 light towers, vegetation, start/finish gantry
+    Scenery.ts          # drivers' stand (+ varied full-size spectators via buildPerson/spectatorLooks) + timing booth/shack, themed horizon backdrop (mesas/forest/plains/city/dunes/badlands) + world floor, 6 light towers, vegetation, start/finish gantry
   ai/AIDriver.ts        # racing-line follow, difficulty, avoidance
   race/
     Field.ts            # builds + drives the whole field; contacts, walls, tire wear, dust
-    Marshals.ts         # 6 marshals — 2 seated in chairs at the infield ends, 4 standing outside the corners; nearest available recovers wrecked/stalled cars — placing them back on the racing line, upright and facing race direction
+    Marshals.ts         # 6 marshals — 2 seated in chairs at the infield ends, 4 standing outside the corners; nearest available recovers wrecked/stalled cars — placing them back on the racing line, upright and facing race direction. Exports buildPerson + marshalLooks/spectatorLooks (shared figure builder)
     FlagGirl.ts         # starter at the start/finish line who waves the green flag to send the field off
     LawnMower.ts        # easter egg: a guy on a red riding mower parked on the infield by the logo
     RaceManager.ts      # laps, positions, timing off the centerline
-  career/Career.ts      # standings, points, unlocks, save/load (localStorage)
-  ui/                   # Screens (attract/pre-race/results), Guide (driver's manual overlay), SetupPanel, Minimap
+  career/Career.ts      # standings, points, unlocks, save/load (localStorage); driver names — player (saved name, default "Super Jay") + stable random AI names (AI_NAMES); titleCaseName
+  ui/                   # Screens (attract/pre-race/results, START name prompt), Guide (driver's manual overlay), SetupPanel, Minimap
 public/
   env/environment.env   # prefiltered IBL
   textures/dirt/*.jpg   # bundled PBR dirt (albedo/normal/ao/rough)

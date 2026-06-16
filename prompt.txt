@@ -64,6 +64,12 @@ GAME SHAPE
   along the straight to keep it close, and telephoto-zooms as it runs to the far side.
   Toggle an aerial overview with C.
 - Game-flow state machine in a single entry point (main.ts): attract -> prerace -> racing -> finished.
+- BOOT/LOADING PROGRESS BAR: the loading splash is a real app-build progress bar (RCSPRINT title +
+  fill + label) advanced in stages as the engine, Havok physics, and track/field build, then fades out.
+- DRIVER NAMES: clicking START opens an optional name prompt pre-filled with the saved player name
+  (default "Super Jay"); the typed name is title-cased, persisted to localStorage, and shown on the
+  leaderboard. AI cars get STABLE random full names (one per grid slot) so the championship — points
+  keyed by driver name — accumulates coherently across the season.
 - A flag girl at the start/finish line waves the green flag on the
   countdown GO; a polished in-game driver's manual overlay opens from the title and pre-race screens.
 - ATTRACT INTRO: when the app is first opened (once per tab session), play a cinematic
@@ -88,7 +94,8 @@ TRACKS (data-driven)
   surface (contiguous full-width ribbons all one earthy brown — NO painted multi-shade groove bands;
   grip still evolves invisibly per line in SurfaceModel),
   start/finish, and centerline helpers project()/gridPose(). Build trackside scenery (Scenery.ts):
-  a drivers' stand, a small roofed TIMING BOOTH/SHACK beside it on the +z end (dark-gray gable
+  a drivers' stand (with ~8 VARIED full-size spectators on the deck — built via the marshals'
+  buildPerson/spectatorLooks: arms, varied shirts, some ball caps, some long hair), a small roofed TIMING BOOTH/SHACK beside it on the +z end (dark-gray gable
   roof), 6 LIGHT TOWERS (four corners + two mid-straight), a start/finish gantry, and a PER-ROUND
   THEMED BACKDROP (mesas/forest/plains/city/dunes/badlands — distinct silhouette + color, darker at
   night) with themed near vegetation. The 400m infield only covers ±200m, so also lay a large

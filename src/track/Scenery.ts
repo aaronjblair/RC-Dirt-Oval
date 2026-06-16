@@ -9,6 +9,7 @@ import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import type { OvalTrack } from "./OvalTrack";
 import type { BackdropTheme } from "./TrackDef";
+import { buildPerson, spectatorLooks, type Look } from "../race/Marshals";
 
 function mat(scene: Scene, name: string, c: Color3, rough = 0.7, metal = 0.0): PBRMaterial {
   const m = new PBRMaterial(name, scene);
@@ -21,29 +22,17 @@ export interface SceneryHandles {
 }
 
 /**
- * A full-size standing spectator (legs, torso, head) with its feet at (x,y,z). Scaled to
- * real-human size (`scale`) — only the cars/track are 1:10. Static (frozen after scaling).
+ * A full-size, varied standing spectator (legs, torso, arms, head, hair — some with ball caps or
+ * long hair) with its feet at (x,y,z). Reuses the marshals' `buildPerson` machinery, which scales to
+ * real-human size — only the cars/track are 1:10. Static (frozen after building).
  */
 function buildSpectator(
-  scene: Scene, i: number, x: number, y: number, z: number, shirt: Color3,
-  shadow: ShadowGenerator | null, scale: number,
+  scene: Scene, i: number, x: number, y: number, z: number, look: Look,
+  shadow: ShadowGenerator | null,
 ): void {
-  const root = new TransformNode("spectator" + i, scene);
-  root.position.set(x, y, z);
-  root.scaling.setAll(scale);
-  const skin = mat(scene, "spsk" + i, new Color3(0.82, 0.62, 0.5));
-  const dark = mat(scene, "spdk" + i, new Color3(0.14, 0.14, 0.17));
-  const top = mat(scene, "sptp" + i, shirt, 0.6);
-  const place = (m: Mesh, material: PBRMaterial, px: number, py: number, pz: number) => {
-    m.material = material; m.parent = root; m.position.set(px, py, pz);
-    m.isPickable = false; if (shadow) shadow.addShadowCaster(m); m.receiveShadows = true;
-  };
-  for (const s of [0.1, -0.1]) {
-    place(MeshBuilder.CreateCylinder("spleg" + i + s, { diameter: 0.16, height: 0.8, tessellation: 8 }, scene), dark, 0, 0.4, s);
-  }
-  place(MeshBuilder.CreateCapsule("sptor" + i, { radius: 0.2, height: 0.62, tessellation: 10 }, scene), top, 0, 1.05, 0);
-  place(MeshBuilder.CreateSphere("sphead" + i, { diameter: 0.28, segments: 10 }, scene), skin, 0, 1.52, 0);
-  root.getChildMeshes().forEach((m) => m.freezeWorldMatrix());
+  const body = buildPerson(scene, "spectator" + i, look, shadow);
+  body.position.set(x, y, z);
+  body.getChildMeshes().forEach((m) => m.freezeWorldMatrix());
 }
 
 /** Drivers' stand, grandstands, light towers and a start/finish gantry. */
@@ -83,15 +72,12 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
     const kick = MeshBuilder.CreateBox("standKick" + dx, { width: 0.06, height: 0.4, depth: 13 }, scene);
     kick.position.set(standX + dx, standY + 0.35, 0); kick.material = steel; cast(kick);
   }
-  // 8 FULL-SIZE spectators standing on the deck along the track-side rail
-  const shirts = [
-    new Color3(0.8, 0.2, 0.2), new Color3(0.2, 0.4, 0.8), new Color3(0.9, 0.75, 0.2),
-    new Color3(0.2, 0.6, 0.35), new Color3(0.85, 0.85, 0.9), new Color3(0.7, 0.4, 0.1),
-    new Color3(0.5, 0.2, 0.7), new Color3(0.15, 0.6, 0.7),
-  ];
+  // 8 FULL-SIZE, varied spectators standing on the deck along the track-side rail (some with ball
+  // caps, some with long hair, varied shirts) — full-human scale (≈5.7u) over the 1:10 toy cars.
+  const fans = spectatorLooks();
   for (let i = 0; i < 8; i++) {
     const z = -5.6 + i * (11.2 / 7); // spread across the walkway
-    buildSpectator(scene, i, standX - 1.3, standY + 0.13, z, shirts[i], shadow, 3.4); // ≈5.6u adults
+    buildSpectator(scene, i, standX - 1.3, standY + 0.13, z, fans[i % fans.length], shadow);
   }
 
   // --- Small roofed TIMING BOOTH/shack beside the stand on the +z end, with a DARK-GRAY
