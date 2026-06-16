@@ -9,7 +9,7 @@ A browser 3D **1/10-scale dirt-oval RC sprint car racing game**, modeled on the 
 - **Contact that bites** — positional car-to-car and wall contact; a genuinely hard T-bone or wall slam triggers a **barrel-roll rollover** that leaves the car **stuck upside down until a track marshal runs out and rights it** (or you tap `R` to bail yourself out).
 - **Track & pit marshals** — hi-vis corner workers stand around the track like a real RC dirt oval, and two rescue marshals sit in chairs at the infield ends, getting up to walk out across traffic and flip wrecked cars back onto their wheels.
 - **A flag girl starts every race** — a starter at the start/finish line waves the green flag (with a two-blast starter's whistle) to send the field off.
-- **You drive Super Jay's #32** — the player car is the orange **"SUPER JAY"** #32, lettered on the wing deck and body sides; the field is led by Super Jay, Aaron Blair, and Carl Vandruff.
+- **You drive Super Jay's #32** — the player car is the orange **#32** carrying Super Jay's logo decal on the wing deck and body sides; the field is led by Super Jay, Aaron Blair, and Carl Vandruff.
 - **Driver's manual** — a polished in-game documentation overlay (controls, racecraft, setup, career) opens from the title screen and the pre-race panel; works on desktop and phone.
 - **Cinematic attract intro** — open the app and a TV-style "broadcast" reel plays (AI field racing, cutting between a crane orbit, low trackside, a chase cam, and a flyby); click or press any key to enter the menu.
 - **15-track career/championship** — progressively harder dirt ovals that **always roll on to the next track**; night rounds under the lights.

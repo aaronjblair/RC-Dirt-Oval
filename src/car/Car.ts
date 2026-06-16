@@ -5,6 +5,7 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import "@babylonjs/core/Meshes/Builders/capsuleBuilder";
 import "@babylonjs/core/Meshes/Builders/latheBuilder";
 import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
@@ -17,6 +18,8 @@ export interface CarOptions {
   spawn?: Vector3;
   yaw?: number;
   name?: string; // driver/livery name lettered on the wing deck + body sides
+  logoUrl?: string; // image decal placed on the wing deck + body sides (overrides the lettered name)
+  logoAspect?: number; // logo width / height (for sizing the decal plane)
 }
 
 export interface BuiltCar {
@@ -60,6 +63,22 @@ function decalMat(scene: Scene, name: string, w: number, h: number, draw: Draw, 
   m.roughness = 0.3; m.metallic = 0.0;
   if (alpha) { m.useAlphaFromAlbedoTexture = true; m.transparencyMode = PBRMaterial.MATERIAL_ALPHATEST; }
   else { m.clearCoat.isEnabled = true; m.clearCoat.intensity = 0.85; m.clearCoat.roughness = 0.08; }
+  return m;
+}
+
+/** A transparent image decal (e.g. a driver's logo sticker) as a clear-coated material. */
+function imageDecalMat(scene: Scene, name: string, url: string): PBRMaterial {
+  const tex = new Texture(url, scene, false, true); // invertY=true: PNG → Babylon UV
+  tex.hasAlpha = true;
+  tex.anisotropicFilteringLevel = 16;
+  const m = new PBRMaterial(name + "M", scene);
+  m.albedoTexture = tex;
+  m.useAlphaFromAlbedoTexture = true;
+  m.transparencyMode = PBRMaterial.MATERIAL_ALPHATEST; // crisp sticker edge, no sort issues
+  m.roughness = 0.32; m.metallic = 0.0;
+  m.emissiveTexture = tex; m.emissiveColor = new Color3(0.16, 0.16, 0.16); // a little pop so it reads
+  m.backFaceCulling = false;
+  m.clearCoat.isEnabled = true; m.clearCoat.intensity = 0.7; m.clearCoat.roughness = 0.1;
   return m;
 }
 
@@ -203,7 +222,11 @@ export function createCar(
 ): BuiltCar {
   const color = opts.color ?? new Color3(0.85, 0.12, 0.12);
   const num = opts.number ?? 22;
-  const name = opts.name;
+  const logoUrl = opts.logoUrl;
+  const logoAspect = opts.logoAspect ?? 0.72; // width / height (portrait sticker)
+  // The lettered name is suppressed when an image logo is supplied (logo wins).
+  const name = logoUrl ? undefined : opts.name;
+  const logoMat = logoUrl ? imageDecalMat(scene, "carlogo", logoUrl) : null;
 
   const mPaint = paintMat(scene, "paint", color);
   const mPaintDark = paintMat(scene, "paintD", color.scale(0.55));
@@ -238,6 +261,13 @@ export function createCar(
     const panel = add(MeshBuilder.CreateBox("livery" + sx, { width: 0.02, height: 0.42, depth: 0.95 }, scene),
       decalMat(scene, "livery" + sx, 512, 256, liverySideDraw(color, num, name), sx < 0), root);
     panel.position.set(0.355 * sx, 0.02, -0.1);
+    // Driver's logo sticker on each side of the tub (faces outward, reads on both sides).
+    if (logoMat) {
+      const lh = 0.36, lw = lh * logoAspect;
+      const sideLogo = add(MeshBuilder.CreatePlane("sideLogo" + sx, { width: lw, height: lh }, scene), logoMat, root);
+      sideLogo.rotation.y = sx > 0 ? -Math.PI / 2 : Math.PI / 2; // normal points outward (±x)
+      sideLogo.position.set(0.375 * sx, 0.12, 0.16);
+    }
   }
 
   // Tail cowl — smooth lathe teardrop (the sprint car fuel tank/tail)
@@ -314,8 +344,16 @@ export function createCar(
   const wingPivot = new TransformNode("wingPivot", scene); wingPivot.parent = root;
   wingPivot.position.set(0, 0.99, -0.4); wingPivot.rotation.x = -0.18;
   const deck = add(MeshBuilder.CreateBox("topDeck", { width: 1.62, height: 0.04, depth: 1.04 }, scene),
-    decalMat(scene, "wdeck", 512, 256, wingDeckDraw(color, name ?? "RCSPRINT")), wingPivot as unknown as TransformNode);
+    decalMat(scene, "wdeck", 512, 256, wingDeckDraw(color, logoUrl ? "" : (name ?? "RCSPRINT"))), wingPivot as unknown as TransformNode);
   deck.position.set(0, 0, 0);
+  // Driver's logo decal laid flat on the wing deck top — the hero graphic, read from the stand.
+  if (logoMat) {
+    const dh = 0.92, dw = dh * logoAspect; // portrait sticker sized to the deck depth
+    const deckLogo = add(MeshBuilder.CreatePlane("deckLogo", { width: dw, height: dh }, scene), logoMat, wingPivot as unknown as TransformNode);
+    deckLogo.rotation.x = Math.PI / 2; // lie flat, facing up
+    deckLogo.rotation.z = Math.PI;     // upright reading toward the front
+    deckLogo.position.set(0, 0.025, 0);
+  }
   // drooped leading lip fakes the foil's camber so the wing isn't a flat slab
   const lead = add(MeshBuilder.CreateBox("wlead", { width: 1.62, height: 0.035, depth: 0.2 }, scene), mPaintDark, wingPivot as unknown as TransformNode);
   lead.position.set(0, -0.035, 0.52); lead.rotation.x = 0.34;

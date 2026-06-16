@@ -7,6 +7,7 @@ import { makeDustTexture } from "../core/Textures";
 import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import { createCar, type BuiltCar } from "../car/Car";
+import superJayLogo from "../assets/superjay.png";
 import { AIDriver, type CarState } from "../ai/AIDriver";
 import { SurfaceModel } from "../track/SurfaceModel";
 import { applySetup, DEFAULT_SETUP, type CarSetup } from "../car/CarSetup";
@@ -62,7 +63,12 @@ export class Field {
     for (let i = 0; i < n; i++) {
       const grid = track.gridPose(i);
       const p = PALETTE[i];
-      const car = createCar(scene, plugin, shadow, { color: p.c, number: p.n, spawn: grid.pos, yaw: grid.yaw, name: i === 0 ? "Super Jay" : undefined });
+      const car = createCar(scene, plugin, shadow, {
+        color: p.c, number: p.n, spawn: grid.pos, yaw: grid.yaw,
+        name: i === 0 ? "Super Jay" : undefined,
+        logoUrl: i === 0 ? superJayLogo : undefined, // Super Jay's logo decal on the player car
+        logoAspect: 686 / 1190,
+      });
       this.cars.push(car);
       this.vehicles.push(car.vehicle);
       this.wear.push(0);
