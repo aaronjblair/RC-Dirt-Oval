@@ -85,14 +85,15 @@ function roofDraw(color: Color3, num: number): Draw {
  *  so all four tires read as fendered. Lives in the Z-Y plane at the wheel's x, no geometry
  *  below the ground line. */
 function buildFender(scene: Scene, name: string, wheelR: number, mat: PBRMaterial): Mesh {
-  const R = wheelR + 0.07;
+  const R = wheelR + 0.11;
   const path: Vector3[] = [];
   // sweep from just behind the contact patch, over the top, to just ahead of it
-  for (let i = 0; i <= 18; i++) {
-    const a = (-0.12 + (i / 18) * 1.24) * Math.PI; // ~ -22° .. 202°
+  for (let i = 0; i <= 20; i++) {
+    const a = (-0.16 + (i / 20) * 1.32) * Math.PI; // a fuller wrap over the tire
     path.push(new Vector3(0, Math.sin(a) * R, Math.cos(a) * R));
   }
-  const t = MeshBuilder.CreateTube(name, { path, radius: 0.06, tessellation: 8, cap: Mesh.CAP_ALL }, scene);
+  // big, rounded flare (chunky tube) — the signature late-model wheel arch
+  const t = MeshBuilder.CreateTube(name, { path, radius: 0.11, tessellation: 10, cap: Mesh.CAP_ALL }, scene);
   t.material = mat;
   return t;
 }
@@ -152,10 +153,13 @@ export function createLateModel(
     }
   }
 
-  // --- Front clip: low pointed nose + air dam, sloped hood up to the cowl ---
-  add(MeshBuilder.CreateBox("lmvalance", { width: 1.08, height: 0.24, depth: 0.14 }, scene), mBlack, root).position.set(0, -0.04, 1.12);
-  const noseTop = add(MeshBuilder.CreateBox("lmnoseTop", { width: 0.98, height: 0.05, depth: 0.26 }, scene), mPaint, root);
-  noseTop.position.set(0, 0.06, 1.0);
+  // --- Front clip: LOW POINTED nose + wide air dam, sloped hood up to the cowl ---
+  add(MeshBuilder.CreateBox("lmvalance", { width: 1.12, height: 0.22, depth: 0.14 }, scene), mBlack, root).position.set(0, -0.06, 1.12); // wide low air dam
+  const noseTop = add(MeshBuilder.CreateBox("lmnoseTop", { width: 0.9, height: 0.05, depth: 0.30 }, scene), mPaint, root);
+  noseTop.position.set(0, 0.04, 0.98);
+  // rounded nose point: a low, wide, forward sphere tapering the nose to a soft rounded point
+  const noseTip = add(MeshBuilder.CreateSphere("lmnoseTip", { diameter: 0.5, segments: 12 }, scene), mPaint, root);
+  noseTip.position.set(0, 0.02, 1.16); noseTip.scaling.set(1.7, 0.5, 0.9);
   const hood = add(MeshBuilder.CreateBox("lmhood", { width: 0.98, height: 0.05, depth: 0.92 }, scene), mPaint, root);
   hood.position.set(0, 0.17, 0.55); hood.rotation.x = 0.18; // nose-down wedge
   // front fender tops (body color) between the hood and the front wheels
@@ -223,8 +227,6 @@ export function createLateModel(
     edgeR("lmcF" + sx, 0.07, 0.30, "y", sx * 0.5, 0, 0.655);
     edgeR("lmcR" + sx, 0.07, 0.30, "y", sx * 0.5, 0, -0.895);
   }
-  // nose leading edge (rounded)
-  edgeR("lmnoseLead", 0.06, 0.98, "x", 0, 0.06, 1.13);
   // roof: a rounded rail all the way around the perimeter + rounded corners (centre 0,0.71,-0.06;
   // half-w 0.39, z 0.27..-0.39, top y 0.735) so it reads as a crowned roof, not a slab
   for (const sx of [1, -1]) edgeR("lmroofE" + sx, 0.05, 0.66, "z", sx * 0.39, 0.735, -0.06);
