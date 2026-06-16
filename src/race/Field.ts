@@ -29,6 +29,8 @@ const PALETTE: { c: Color3; n: number }[] = [
   { c: new Color3(0.1, 0.8, 0.8), n: 15 },
   { c: new Color3(0.95, 0.5, 0.7), n: 17 },
   { c: new Color3(0.3, 0.3, 0.35), n: 2 },
+  { c: new Color3(0.80, 0.10, 0.12), n: 5 },  // crimson  (slots 11/12 — fields run up to 12 cars)
+  { c: new Color3(0.40, 0.55, 0.95), n: 21 }, // periwinkle
 ];
 
 /** Builds and drives the full field: the player plus AI sprint cars. */

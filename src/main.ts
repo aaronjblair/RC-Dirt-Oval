@@ -62,6 +62,7 @@ async function boot() {
     : Math.min(career.round, careerTracks.length - 1);
   const def = careerTracks[round];
   def.night = true; // the game is set at NIGHT — lit lamp towers + a moon/stars sky
+  def.fieldSize = 8 + Math.floor(Math.random() * 5); // each race runs a random 8–12-car field
 
   const cam = new DriverStandCamera(scene, canvas);
   scene.activeCamera = cam.camera;

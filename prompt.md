@@ -76,7 +76,9 @@ the timing booth, and any future person/prop/building.
   `project()/sampleAt()/gridPose()`.
 - `generateCareer()` → **15 progressively harder** ovals (radius shrinks, straights lengthen,
   width narrows, grip drops/falls off faster, ruts + AI rise, laps + field grow, banking ramps
-  to ~0.20–0.24 rad). Distinct dirt color + backdrop per round. **Night rounds 8/12/15.**
+  to ~0.20–0.24 rad). Distinct dirt color + backdrop per round. **Night rounds 8/12/15.** **Each race
+  runs a random 8–12-car field** (`def.fieldSize = 8 + rand(0..4)` per load; keep the colour `PALETTE`
+  + `DRIVER_NUMBERS` ≥ 12 long).
   (Night is currently force-enabled for the whole game via `def.night = true` in `main.ts`;
   remove that line to restore the day/night calendar.)
 
@@ -114,6 +116,8 @@ floating/clipping. Build procedurally (`Car.ts`):
   returns to the right posture.
 - **Flag girl** at the start/finish on a small podium; `greenFlag()` fires a big wave from the
   countdown GO and the `?demo` start, decaying to idle.
+- **Marshal variety**: give the marshals varied looks (shirt/hair/skin/headwear/cap) so no two read
+  identically.
 - **Easter egg**: a guy on a red riding mower parked on the infield grass by the logo (static).
 - Build figures from cheap primitives (cylinders/capsules/spheres) under one feet-anchored
   `TransformNode` root; freeze static meshes; animated parts go under a child pivot.

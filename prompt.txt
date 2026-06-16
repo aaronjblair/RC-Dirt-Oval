@@ -43,7 +43,11 @@ the wrong way at near-zero speed while green), the NEAREST AVAILABLE marshal (se
 gets up/jogs across traffic to it and PLACES IT BACK ON THE RACING LINE —
 upright, facing race direction, ready to continue (vehicle.resetTo(pos, yaw) from track.project()
 nearest centerline + tangent), then returns to its post and re-seats/stands. (Not just righting it
-in place.) Procedural low-poly figures; give each a `seated` flag for the return posture.
+in place.) Procedural low-poly figures; give each a `seated` flag for the return posture. Vary their
+looks (shirt/hair/skin/headwear/cap) so no two marshals read identically.
+
+FIELD SIZE: each race runs a RANDOM 8-12 cars (def.fieldSize = 8 + rand(0..4) per load); keep the
+colour PALETTE (Field.ts) and DRIVER_NUMBERS (Career.ts) at least 12 entries long.
 
 AUDIO (MotorSound.ts): subtle, PLAYER-CAR ONLY, pure procedural Web Audio (no file). Emulate an
 electric brushless RC motor — a sawtooth fundamental whose freq tracks speed+throttle (~90-450 Hz),

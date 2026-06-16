@@ -26,29 +26,66 @@ function mat(scene: Scene, name: string, c: Color3, emissive = 0): PBRMaterial {
   return m;
 }
 
-/** A simple person: legs, hi-vis torso + arms, head, cap. Root at the feet, scaled to size. */
-function buildPerson(scene: Scene, name: string, vest: Color3, shadow: ShadowGenerator | null): TransformNode {
+/** Per-figure appearance so no two marshals look identical. */
+export interface Look {
+  shirt: Color3;    // shirt/vest colour
+  pants: Color3;    // legs
+  skin: Color3;     // head + hands
+  hair: Color3;     // hair colour
+  hat: boolean;     // wear a cap over the hair
+  longHair: boolean;// add a hair drape down the back
+}
+
+/** A simple clothed person built from primitives: legs, torso + arms, head, hair/cap. Root at the
+ *  feet, scaled to real-human size. Appearance varies per `Look`. */
+export function buildPerson(scene: Scene, name: string, look: Look, shadow: ShadowGenerator | null): TransformNode {
   const root = new TransformNode(name, scene);
-  const skin = mat(scene, name + "skin", new Color3(0.82, 0.62, 0.5));
-  const dark = mat(scene, name + "dark", new Color3(0.13, 0.13, 0.16));
-  const vestM = mat(scene, name + "vest", vest, 0.4); // hi-vis pops a little
+  const skin = mat(scene, name + "skin", look.skin);
+  const pantsM = mat(scene, name + "pants", look.pants);
+  const shirtM = mat(scene, name + "shirt", look.shirt, 0.35); // hi-vis pops a little
+  const hairM = mat(scene, name + "hair", look.hair);
+  const capM = mat(scene, name + "cap", new Color3(0.12, 0.12, 0.14));
   const add = (m: Mesh, material: PBRMaterial) => {
     m.material = material; m.parent = root; m.isPickable = false;
     if (shadow) shadow.addShadowCaster(m); m.receiveShadows = true; return m;
   };
   for (const sx of [1, -1]) {
-    const leg = add(MeshBuilder.CreateCylinder(name + "leg" + sx, { diameter: 0.14, height: 0.74, tessellation: 8 }, scene), dark);
+    const leg = add(MeshBuilder.CreateCylinder(name + "leg" + sx, { diameter: 0.14, height: 0.74, tessellation: 8 }, scene), pantsM);
     leg.position.set(sx * 0.1, 0.37, 0);
   }
-  add(MeshBuilder.CreateCapsule(name + "torso", { radius: 0.17, height: 0.54, tessellation: 10 }, scene), vestM).position.set(0, 1.0, 0);
+  add(MeshBuilder.CreateCapsule(name + "torso", { radius: 0.17, height: 0.54, tessellation: 10 }, scene), shirtM).position.set(0, 1.0, 0);
   for (const sx of [1, -1]) {
-    const arm = add(MeshBuilder.CreateCylinder(name + "arm" + sx, { diameter: 0.1, height: 0.5, tessellation: 8 }, scene), vestM);
+    const arm = add(MeshBuilder.CreateCylinder(name + "arm" + sx, { diameter: 0.1, height: 0.5, tessellation: 8 }, scene), shirtM);
     arm.position.set(sx * 0.24, 1.0, 0);
   }
-  add(MeshBuilder.CreateSphere(name + "head", { diameter: 0.26, segments: 10 }, scene), skin).position.set(0, 1.42, 0);
-  add(MeshBuilder.CreateCylinder(name + "cap", { diameterTop: 0.3, diameterBottom: 0.32, height: 0.12, tessellation: 10 }, scene), dark).position.set(0, 1.55, 0);
+  add(MeshBuilder.CreateCylinder(name + "neck", { diameter: 0.1, height: 0.13, tessellation: 8 }, scene), skin).position.set(0, 1.31, 0);
+  add(MeshBuilder.CreateSphere(name + "head", { diameter: 0.26, segments: 10 }, scene), skin).position.set(0, 1.44, 0);
+  // hair sphere (always), optional long drape down the back, optional cap on top
+  const hair = add(MeshBuilder.CreateSphere(name + "hair", { diameter: 0.30, segments: 10 }, scene), hairM);
+  hair.position.set(0, 1.46, 0); hair.scaling.y = 0.85;
+  if (look.longHair) {
+    const drape = add(MeshBuilder.CreateBox(name + "drape", { width: 0.26, height: 0.66, depth: 0.12 }, scene), hairM);
+    drape.position.set(0, 1.12, -0.11);
+  }
+  if (look.hat) {
+    add(MeshBuilder.CreateCylinder(name + "capm", { diameterTop: 0.30, diameterBottom: 0.34, height: 0.12, tessellation: 10 }, scene), capM)
+      .position.set(0, 1.56, 0);
+  }
   root.scaling.setAll(PEOPLE_SCALE); // real-human size (feet stay at y=0)
   return root;
+}
+
+/** Six distinct marshal looks (varied shirt/hair/skin/headwear). */
+function marshalLooks(): Look[] {
+  const C = (r: number, g: number, b: number) => new Color3(r, g, b);
+  return [
+    { shirt: C(0.95, 0.45, 0.05), pants: C(0.13, 0.13, 0.16), skin: C(0.85, 0.66, 0.52), hair: C(0.28, 0.18, 0.09), hat: true,  longHair: false }, // orange, brown, cap
+    { shirt: C(0.95, 0.80, 0.10), pants: C(0.15, 0.20, 0.28), skin: C(0.62, 0.45, 0.34), hair: C(0.08, 0.07, 0.06), hat: false, longHair: false }, // yellow, black
+    { shirt: C(0.55, 0.85, 0.10), pants: C(0.20, 0.18, 0.15), skin: C(0.50, 0.36, 0.27), hair: C(0.62, 0.62, 0.64), hat: true,  longHair: false }, // lime, gray, cap
+    { shirt: C(0.10, 0.60, 0.85), pants: C(0.13, 0.13, 0.16), skin: C(0.85, 0.66, 0.52), hair: C(0.78, 0.64, 0.32), hat: false, longHair: true  }, // cyan, blonde long
+    { shirt: C(0.25, 0.30, 0.80), pants: C(0.25, 0.22, 0.20), skin: C(0.62, 0.45, 0.34), hair: C(0.42, 0.16, 0.08), hat: true,  longHair: false }, // blue, auburn, cap
+    { shirt: C(0.85, 0.40, 0.65), pants: C(0.18, 0.16, 0.20), skin: C(0.95, 0.78, 0.66), hair: C(0.20, 0.12, 0.06), hat: false, longHair: true  }, // pink, dark-brown long
+  ];
 }
 
 /** A folding camp chair: seat + back + four legs. Root at the feet; scaled by the caller. */
@@ -95,7 +132,7 @@ export class Marshals {
     this.track = track;
     const W = track.def.width, L = track.def.straightLength, R = track.def.cornerRadius;
     const infieldEndZ = L / 2 + (R - W / 2); // inner-edge z at the very end of the infield (x=0)
-    const vestO = new Color3(0.95, 0.45, 0.05); // hi-vis orange rescue crew
+    const looks = marshalLooks(); // varied appearances
     const chairMat = mat(scene, "chairMat", new Color3(0.15, 0.3, 0.55)); // blue camp chairs
     let idx = 0;
 
@@ -108,7 +145,7 @@ export class Marshals {
       chair.rotation.y = faceHome;
       chair.scaling.setAll(PEOPLE_SCALE);
       chair.getChildMeshes().forEach((m) => m.freezeWorldMatrix());
-      const body = buildPerson(scene, "marshal" + idx, vestO, shadow);
+      const body = buildPerson(scene, "marshal" + idx, looks[idx], shadow);
       body.position.set(home.x, -SIT_DROP, home.z); // seated in the chair
       body.rotation.y = faceHome;
       this.marshals.push({ body, home, faceHome, seated: true, state: "idle", target: null, timer: 0, bob: 0 });
@@ -126,7 +163,7 @@ export class Marshals {
       const pos = sm.pos.add(sm.outward.scale(W / 2 + 4)); // a few units past the outer wall
       const home = new Vector3(pos.x, 0, pos.z);
       const faceHome = Math.atan2(-sm.outward.x, -sm.outward.z); // face IN toward the track
-      const body = buildPerson(scene, "marshal" + idx, vestO, shadow);
+      const body = buildPerson(scene, "marshal" + idx, looks[idx], shadow);
       body.position.set(home.x, 0, home.z); // standing
       body.rotation.y = faceHome;
       this.marshals.push({ body, home, faceHome, seated: false, state: "idle", target: null, timer: 0, bob: 0 });
