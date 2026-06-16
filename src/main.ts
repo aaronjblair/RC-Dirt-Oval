@@ -299,6 +299,7 @@ async function boot() {
       : view === "aerial" ? aerialCam
       : cam.camera;
     scene.activeCamera = state === "attract" ? cine.camera : live;
+    status.style.display = view === "aerial" ? "none" : ""; // the lower-left bar blocks the aerial corner
 
     if (state !== "racing") return; // no HUD work outside a live race
 

@@ -13,6 +13,7 @@ export interface Racer {
   bestLap: number;
   lastLap: number;
   finished: boolean;
+  finishedAt: number; // timestamp the car crossed the final line (0 until finished) — orders finishers
   // for live position ordering
   progress: number; // lap*length + s
 }
@@ -40,7 +41,7 @@ export class RaceManager {
     const r: Racer = {
       id, name, isPlayer, getPos,
       lap: 0, prevS: 0, passedHalf: false,
-      lapStart: 0, bestLap: 0, lastLap: 0, finished: false, progress: 0,
+      lapStart: 0, bestLap: 0, lastLap: 0, finished: false, finishedAt: 0, progress: 0,
     };
     this.racers.push(r);
     return r;
@@ -53,6 +54,9 @@ export class RaceManager {
       r.lapStart = now;
       r.prevS = this.track.project(r.getPos()).s;
       r.passedHalf = false;
+      r.finished = false;
+      r.finishedAt = 0;
+      r.progress = 0;
     }
   }
 
@@ -77,13 +81,20 @@ export class RaceManager {
         r.passedHalf = false;
         if (r.lap > this.state.totalLaps) {
           r.finished = true;
+          r.finishedAt = now;
           r.lap = this.state.totalLaps;
         }
       }
       r.prevS = s;
       r.progress = r.lap * len + s;
     }
-    this.racers.sort((a, b) => b.progress - a.progress);
+    // A car that has FINISHED has the most track behind it, but its raw `progress` wraps DOWN at the
+    // line (s→0, lap clamped) — so rank finishers first by finish time, then racers by progress.
+    this.racers.sort((a, b) => {
+      if (a.finished && b.finished) return a.finishedAt - b.finishedAt; // earlier finisher ranks higher
+      if (a.finished !== b.finished) return a.finished ? -1 : 1;        // a finisher beats a still-racing car
+      return b.progress - a.progress;                                   // both racing: more progress leads
+    });
     if (this.racers.length && this.racers.every((r) => r.finished)) this.state.finished = true;
   }
 

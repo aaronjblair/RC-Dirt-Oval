@@ -16,7 +16,7 @@ import type { RaycastVehicle } from "../physics/RaycastVehicle";
  */
 const EYE = new Vector3(0, 0.72, -0.22); // driver's-eye mount, local to the car root (sits up & back
                                          //  over the tail so the long nose shows in the lower frame)
-const BASE_FOV = 0.95;
+const BASE_FOV = 1.12; // wide-ish so more of the track/surroundings reads (zoomed out, easier to see)
 const BASE_PITCH = 0.06; // a hair nose-down so the track + the car's own nose fill the lower frame
 
 export class CockpitCamera {
