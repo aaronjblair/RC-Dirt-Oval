@@ -15,6 +15,7 @@ export class EngineAudio {
   private biteGain!: GainNode;
   private filter!: BiquadFilterNode;
   private scrub!: GainNode;
+  private ambGain!: GainNode; // subtle crowd/air bed under the race
   private rpm = 0; // 0..1 modeled engine speed
 
   start() {
@@ -60,6 +61,33 @@ export class EngineAudio {
     this.scrub = c.createGain(); this.scrub.gain.value = 0;
     noise.connect(nf); nf.connect(this.scrub); this.scrub.connect(this.master);
     noise.start();
+
+    // subtle ambience bed: the same noise softly lowpassed — a faint crowd/air hush
+    // that sits well under the motor so the scene isn't dead silent at idle.
+    const af = c.createBiquadFilter(); af.type = "lowpass"; af.frequency.value = 420; af.Q.value = 0.4;
+    this.ambGain = c.createGain(); this.ambGain.gain.value = 0;
+    noise.connect(af); af.connect(this.ambGain); this.ambGain.connect(this.master);
+    this.ambGain.gain.setTargetAtTime(0.02, c.currentTime, 1.2); // fade the bed in gently
+  }
+
+  /** Starter's whistle — two short rising blasts to send the field off on the green. */
+  greenFlag() {
+    const c = this.ctx;
+    if (!c) return;
+    const t0 = c.currentTime;
+    const blast = (at: number) => {
+      const o = c.createOscillator(); o.type = "triangle";
+      const g = c.createGain();
+      o.connect(g); g.connect(this.master);
+      o.frequency.setValueAtTime(1850, at);
+      o.frequency.linearRampToValueAtTime(2300, at + 0.16); // chirp up like a real whistle
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(0.12, at + 0.02);
+      g.gain.setTargetAtTime(0, at + 0.16, 0.05);
+      o.start(at); o.stop(at + 0.4);
+    };
+    blast(t0);
+    blast(t0 + 0.22);
   }
 
   /** speed in u/s, throttle 0..1, slip lateral magnitude. */

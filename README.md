@@ -2,16 +2,18 @@
 
 A browser 3D **1/10-scale dirt-oval RC sprint car racing game**, modeled on the real **Team Losi 22S Sprint** (TLR 22 platform). Built with **Babylon.js 7 + Havok (WASM) + Vite + TypeScript** — no engine install, no server. The production build is a static folder you can host anywhere.
 
-- **Driver-stand camera** — a fixed trackside RC vantage (toggle an aerial view with `C`).
+- **Driver-stand camera** — a high, pulled-back trackside vantage that keeps almost the whole oval (and the infield logo) in frame, drifting with your car (toggle a closer aerial view with `C`).
 - **Sim-leaning physics** — custom raycast vehicle, slip-based friction-circle tires, throttle-steer, and a visual wheelstand/squat/dive.
 - **Two-groove dirt that evolves** — a fast bottom that rubbers in early and a top **cushion** that comes in as the track slicks off, so the racing line migrates over a run.
 - **Real dirt racecraft AI** — reads the fast groove, passes by taking the line you aren't on, throws **slide jobs**, defends the inside, and races with pace ebbs/bobbles for a dynamic, shuffling pack.
 - **Contact that bites** — positional car-to-car and wall contact; a genuinely hard T-bone or wall slam triggers a **barrel-roll rollover** that leaves the car **stuck upside down until a track marshal runs out and rights it** (or you tap `R` to bail yourself out).
 - **Track & pit marshals** — hi-vis corner workers stand around the track like a real RC dirt oval, and two rescue marshals sit in chairs at the infield ends, getting up to walk out across traffic and flip wrecked cars back onto their wheels.
+- **A flag girl starts every race** — a starter at the start/finish line waves the green flag (with a two-blast starter's whistle) to send the field off.
+- **Driver's manual** — a polished in-game documentation overlay (controls, racecraft, setup, career) opens from the title screen and the pre-race panel; works on desktop and phone.
 - **Cinematic attract intro** — open the app and a TV-style "broadcast" reel plays (AI field racing, cutting between a crane orbit, low trackside, a chase cam, and a flyby); click or press any key to enter the menu.
 - **15-track career/championship** — progressively harder dirt ovals that **always roll on to the next track**; night rounds under the lights.
 - **Full ~8–10-car fields** of winged sprint cars (every car a clean winged sprint — big raked top wing, round front nerf bar, tubular front axle) on lettered **Hoosier** dirt slicks with chrome dished wheels, right-rear rooster-tail dust, and a throaty methanol engine note. The pack **drafts and slingshots** to keep the racing side-by-side.
-- **A different horizon every round** — each track has its own dirt color and a distinct themed backdrop: red-rock mesas, pine forest, open plains (silos + barn), city skyline, sand dunes, or striped badlands, on a landscape that runs to the horizon. A **grassed infield** carries the speedway logo sprayed onto the surface.
+- **A different horizon every round** — each track has its own dirt color and a distinct themed backdrop: red-rock mesas, pine forest, open plains (silos + barn), city skyline, sand dunes, or striped badlands, on a landscape that runs to the horizon. A **grassed infield** carries a large speedway logo sprayed boldly across the surface.
 - **Live HUD** — lap/position, **interval gaps** to the cars ahead/behind, last vs best lap, tire wear, track state, minimap.
 - **Gamepad / yoke + pedals primary, keyboard fallback.**
 
@@ -59,7 +61,7 @@ src/
     Input.ts            # unified keyboard / gamepad / self-calibrating yoke+pedals input
     DriverStandCamera.ts# high pulled-back stand camera; frames the whole oval, drifts toward the car
     CinematicCamera.ts  # attract-mode broadcast director (crane/trackside/chase/flyby cuts)
-    Audio.ts            # Web Audio engine/scrub/impact/crowd
+    Audio.ts            # Web Audio: engine/scrub + subtle ambience bed + green-flag starter's whistle
   physics/
     PhysicsWorld.ts     # Havok init — static track collision + wheel raycasts ONLY
     RaycastVehicle.ts   # custom KINEMATIC vehicle: velocity/yaw integration, tire model, wheel placement
@@ -68,7 +70,7 @@ src/
     CarSetup.ts         # tunable setup params + applySetup() (localStorage)
   track/
     TrackDef.ts         # the data shape for one oval
-    OvalTrack.ts        # builds a banked stadium oval + grassed infield (sprayed speedway logo) + centerline helpers (project/gridPose)
+    OvalTrack.ts        # builds a banked stadium oval + grassed infield (large sprayed speedway logo) + centerline helpers (project/gridPose)
     tracks.ts           # generateCareer() — the 15-round calendar (night rounds 8/12/15)
     SurfaceModel.ts     # grip evolution over a race (tacky → groove → slick)
     Scenery.ts          # drivers' stand, themed horizon backdrop (mesas/forest/plains/city/dunes/badlands) + world floor, light towers, vegetation, start/finish gantry
@@ -76,9 +78,10 @@ src/
   race/
     Field.ts            # builds + drives the whole field; contacts, walls, tire wear, dust
     Marshals.ts         # trackside corner workers + infield rescue marshals that right flipped cars
+    FlagGirl.ts         # starter at the start/finish line who waves the green flag to send the field off
     RaceManager.ts      # laps, positions, timing off the centerline
   career/Career.ts      # standings, points, unlocks, save/load (localStorage)
-  ui/                   # Screens (pre-race/results), SetupPanel, Minimap
+  ui/                   # Screens (attract/pre-race/results), Guide (driver's manual overlay), SetupPanel, Minimap
 public/
   env/environment.env   # prefiltered IBL
   textures/dirt/*.jpg   # bundled PBR dirt (albedo/normal/ao/rough)

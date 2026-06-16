@@ -1,5 +1,6 @@
 import type { TrackDef } from "../track/TrackDef";
 import type { Standing } from "../career/Career";
+import { openGuide } from "./Guide";
 
 const CARD =
   "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);min-width:380px;max-width:460px;" +
@@ -43,7 +44,8 @@ export const Screens = {
       `<div style="font-size:64px;font-weight:900;letter-spacing:4px;color:#ffd34d;text-shadow:0 4px 26px rgba(0,0,0,0.95)">RCSPRINT</div>
        <div style="font-size:15px;letter-spacing:2px;color:#dfe7f0;text-shadow:0 2px 10px rgba(0,0,0,0.9);margin-top:2px">1/10 DIRT-OVAL SPRINT CAR RACING</div>
        <div style="font-size:12px;color:#c8d0da;text-shadow:0 2px 8px rgba(0,0,0,0.9);margin-top:6px">Featuring &middot; ${def.name}</div>
-       <div style="margin-top:22px;font-size:15px;font-weight:800;color:#0c0f14;background:#ffd34d;padding:12px 28px;border-radius:30px;box-shadow:0 6px 20px rgba(0,0,0,0.5);animation:atPulse 1.4s ease-in-out infinite">CLICK OR PRESS ANY KEY TO RACE</div>`;
+       <div style="margin-top:22px;font-size:15px;font-weight:800;color:#0c0f14;background:#ffd34d;padding:12px 28px;border-radius:30px;box-shadow:0 6px 20px rgba(0,0,0,0.5);animation:atPulse 1.4s ease-in-out infinite">CLICK OR PRESS ANY KEY TO RACE</div>
+       <button id="atGuide" style="margin-top:14px;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.28);color:#eef2f7;font-size:13px;font-weight:600;letter-spacing:0.5px;padding:8px 18px;border-radius:24px;cursor:pointer">&#128214; Driver's Manual</button>`;
     const st = document.createElement("style");
     st.textContent = "@keyframes atPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}";
     d.appendChild(st);
@@ -52,6 +54,8 @@ export const Screens = {
     const go = () => { if (done) return; done = true; window.removeEventListener("keydown", go); d.remove(); onEnter(); };
     d.addEventListener("click", go);
     window.addEventListener("keydown", go);
+    // Manual opens without starting the race (stop the click from bubbling to `go`).
+    (d.querySelector("#atGuide") as HTMLButtonElement).addEventListener("click", (e) => { e.stopPropagation(); openGuide(); });
     return d;
   },
 
@@ -63,9 +67,11 @@ export const Screens = {
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:8px">CHAMPIONSHIP</div>
        ${standingsTable(champ)}
        <button id="scStart" style="${BTN}">START RACE</button>
+       <button id="scGuide" style="${BTN2}">&#128214; DRIVER'S MANUAL</button>
        <div style="font-size:11px;color:#7f8a98;text-align:center;margin-top:10px">Press <b>G</b> for garage setup &middot; <b>Arrows/WASD</b> or gamepad to drive</div>`
     );
     (p.querySelector("#scStart") as HTMLButtonElement).onclick = () => { p.remove(); onStart(); };
+    (p.querySelector("#scGuide") as HTMLButtonElement).onclick = () => openGuide();
     return p;
   },
 

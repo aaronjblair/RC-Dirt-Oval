@@ -19,6 +19,7 @@ import { generateCareer } from "./track/tracks";
 import { RaceManager } from "./race/RaceManager";
 import { Field } from "./race/Field";
 import { Marshals } from "./race/Marshals";
+import { FlagGirl } from "./race/FlagGirl";
 import { loadSetup, saveSetup } from "./car/CarSetup";
 import { SetupPanel } from "./ui/SetupPanel";
 import { Screens } from "./ui/Screens";
@@ -103,6 +104,8 @@ async function boot() {
   const player = race.racers.find((r) => r.isPlayer)!;
   // Trackside + pit marshals: stand around the track, and right cars that flip.
   const marshals = new Marshals(scene, track, shadow);
+  // Flag girl at the start/finish line — waves the green to send the field off.
+  const flagGirl = new FlagGirl(scene, track, shadow);
 
   const input = new InputManager();
   new SetupPanel(setup, (s) => { field.applyPlayerSetup(s); saveSetup(s); });
@@ -161,13 +164,13 @@ async function boot() {
 
   const startRacing = () => {
     audio.start(); // Start button is the user gesture that unlocks audio
-    Screens.countdown(() => { race.start(performance.now()); state = "racing"; });
+    Screens.countdown(() => { race.start(performance.now()); state = "racing"; flagGirl.greenFlag(); audio.greenFlag(); });
   };
 
   scene.executeWhenReady(() => {
     loadingEl.style.display = "none";
     if (state === "racing") {
-      race.start(performance.now()); // ?demo — straight into a live race
+      race.start(performance.now()); flagGirl.greenFlag(); // ?demo — straight into a live race
     } else if (state === "attract") {
       // Hide the racing HUD; the reel should read as a video, not gameplay.
       hud.style.display = "none";
@@ -215,6 +218,7 @@ async function boot() {
       cine.update(frameDt, focus, field.playerVehicle.position, field.playerVehicle.heading);
     }
     if (state === "racing" || state === "attract") marshals.update(frameDt, field.cars);
+    flagGirl.update(frameDt);
     cam.update(field.playerVehicle.position, frameDt);
     scene.activeCamera = state === "attract" ? cine.camera : (aerial ? aerialCam : cam.camera);
 

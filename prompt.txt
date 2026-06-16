@@ -43,6 +43,8 @@ GAME SHAPE
   whole oval (and the sprayed infield logo) in frame, drifting gently toward the player.
   Toggle a closer aerial overview with C.
 - Game-flow state machine in a single entry point (main.ts): attract -> prerace -> racing -> finished.
+- A flag girl at the start/finish line waves the green flag (with a starter's-whistle cue) on the
+  countdown GO; a polished in-game driver's manual overlay opens from the title and pre-race screens.
 - ATTRACT INTRO: when the app is first opened (once per tab session), play a cinematic
   "broadcast" reel — the whole field is AI-driven and a single CinematicCamera cuts between
   a slow crane orbit, a low trackside rise, a chase behind the hero car, and a flyby dolly.

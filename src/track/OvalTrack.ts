@@ -319,14 +319,21 @@ export class OvalTrack {
     logoMat.albedoTexture = tex;
     logoMat.useAlphaFromAlbedoTexture = true;
     logoMat.transparencyMode = PBRMaterial.MATERIAL_ALPHABLEND;
-    logoMat.alpha = 0.82; // weathered, painted-on
+    logoMat.alpha = 0.95; // bold sprayed paint, clearly readable
     logoMat.roughness = 1.0;
     logoMat.metallic = 0;
     logoMat.backFaceCulling = false;
+    logoMat.emissiveTexture = tex; // a touch self-lit so it still reads under the lights at night
+    logoMat.emissiveColor = new Color3(0.2, 0.2, 0.2);
     logoMat.zOffset = -8; // render on top of the grass without z-fighting
 
-    const lw = Math.min((R - W / 2) * 1.5, 30); // fits inside the infield half-width
-    const logo = MeshBuilder.CreatePlane("infieldLogo", { width: lw, height: lw / 2.85 }, this.scene);
+    // Fill most of the infield: the wordmark's long axis runs along the straights (z),
+    // where there's far more room than across the short (x) axis. Size to whichever fits.
+    const ASPECT = 2.85; // logo width : height
+    const innerLen = this.def.straightLength + 2 * R - W; // infield length along the straights
+    const innerWid = 2 * R - W; // infield width across
+    const lw = Math.min(innerLen * 0.74, innerWid * 0.78 * ASPECT); // long axis, with a grass margin
+    const logo = MeshBuilder.CreatePlane("infieldLogo", { width: lw, height: lw / ASPECT }, this.scene);
     logo.rotation.x = -Math.PI / 2; // lay flat, image facing up (un-mirrored from above)
     logo.rotation.y = -Math.PI / 2; // run the wordmark along the straights, readable from the stand (flipped 180°)
     logo.position.set(0, y + 0.015, 0);
