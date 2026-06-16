@@ -54,9 +54,9 @@ function flakeNormal(scene: Scene): Texture {
 function paintMat(scene: Scene, name: string, color: Color3, flake?: Texture): PBRMaterial {
   const m = new PBRMaterial(name, scene);
   m.albedoColor = color;
-  m.metallic = flake ? 0.5 : 0.1; // flake paint is more metallic so facets catch light
-  m.roughness = flake ? 0.34 : 0.32;
-  if (flake) { m.bumpTexture = flake; m.bumpTexture.level = 0.35; }
+  m.metallic = 0.1; // keep low so the colour stays vibrant (high metallic muddies coloured paint)
+  m.roughness = 0.32;
+  if (flake) { m.bumpTexture = flake; m.bumpTexture.level = 0.18; } // faint flake sparkle only
   m.clearCoat.isEnabled = true;
   m.clearCoat.intensity = 1.0;
   m.clearCoat.roughness = 0.06;
