@@ -387,12 +387,14 @@ async function boot() {
       const h = field.playerVehicle.heading;
       const fwd = new Vector3(Math.sin(h), 0, Math.cos(h));
       const right = new Vector3(Math.cos(h), 0, -Math.sin(h));
+      const along = location.search.includes("photofront") ? 4.2 : -3.4; // front vs rear 3/4 (dev)
+      const eyeY = along > 0 ? 1.0 : 1.5;
       photoCam.position.set(
-        pp.x - fwd.x * 3.4 + right.x * 2.2,
-        pp.y + 1.5,
-        pp.z - fwd.z * 3.4 + right.z * 2.2,
+        pp.x + fwd.x * along + right.x * 2.2,
+        pp.y + eyeY,
+        pp.z + fwd.z * along + right.z * 2.2,
       );
-      photoCam.setTarget(new Vector3(pp.x, pp.y + 0.35, pp.z));
+      photoCam.setTarget(new Vector3(pp.x, pp.y + 0.3, pp.z));
       scene.activeCamera = photoCam;
     }
     if (streakCam) scene.activeCamera = streakCam; // hidden streaker preview overrides the view
