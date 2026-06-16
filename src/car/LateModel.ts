@@ -85,15 +85,16 @@ function roofDraw(color: Color3, num: number): Draw {
  *  so all four tires read as fendered. Lives in the Z-Y plane at the wheel's x, no geometry
  *  below the ground line. */
 function buildFender(scene: Scene, name: string, wheelR: number, mat: PBRMaterial): Mesh {
-  const R = wheelR + 0.11;
+  const R = wheelR + 0.08;
   const path: Vector3[] = [];
   // sweep from just behind the contact patch, over the top, to just ahead of it
   for (let i = 0; i <= 20; i++) {
-    const a = (-0.16 + (i / 20) * 1.32) * Math.PI; // a fuller wrap over the tire
+    const a = (-0.14 + (i / 20) * 1.30) * Math.PI;
     path.push(new Vector3(0, Math.sin(a) * R, Math.cos(a) * R));
   }
-  // big, rounded flare (chunky tube) — the signature late-model wheel arch
-  const t = MeshBuilder.CreateTube(name, { path, radius: 0.11, tessellation: 10, cap: Mesh.CAP_ALL }, scene);
+  // a rounded flare LIP — scaled wide laterally by the caller so it reads as a fender that
+  // hugs the tire, not a fat ring
+  const t = MeshBuilder.CreateTube(name, { path, radius: 0.07, tessellation: 10, cap: Mesh.CAP_ALL }, scene);
   t.material = mat;
   return t;
 }
@@ -267,9 +268,9 @@ export function createLateModel(
     hub.parent = root;
     wheels.push(hub);
     wheelDefs.push({ posLocal: new Vector3(L.x, -0.12, L.z), steer: L.steer, drive: L.drive, visual: hub, radius: L.r });
-    // fender flare hooded over this tire
+    // fender flare hooded over this tire — widened laterally so it reads as a fender, not a ring
     const fen = add(buildFender(scene, "lmfen" + i, L.r, mPaint), mPaint, root);
-    fen.position.set(L.x, -0.12, L.z);
+    fen.position.set(L.x, -0.12, L.z); fen.scaling.x = 1.9;
   }
 
   if (shadow) {
