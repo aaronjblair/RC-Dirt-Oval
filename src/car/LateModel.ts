@@ -175,8 +175,10 @@ export function createLateModel(
   // --- Cabin: a distinct ENCLOSED greenhouse that is the HIGH POINT of the wedge. Solid body-color
   //     shell + body-color roof on top, set BACK, with a steeply raked dark-glass windshield and dark
   //     side/back windows. The low nose + low deck below make the whole car a wedge, not a truck cab. ---
-  const cabin = add(MeshBuilder.CreateBox("lmcabin", { width: 0.78, height: 0.27, depth: 0.46 }, scene), mPaint, root);
-  cabin.position.set(0, 0.40, -0.18); // tall enclosed shell, set back
+  // CRITICAL: the cabin must reach DOWN to the body deck (no gap) so the greenhouse is one continuous
+  // solid mass from the deck up to the roof — otherwise you see under a floating roof into an open tub.
+  const cabin = add(MeshBuilder.CreateBox("lmcabin", { width: 0.84, height: 0.44, depth: 0.5 }, scene), mPaint, root);
+  cabin.position.set(0, 0.33, -0.18); // bottom ~0.11 (meets the body), top ~0.55 (roof) — fully enclosed
   const roof = add(MeshBuilder.CreateBox("lmroof", { width: 0.74, height: 0.05, depth: 0.42 }, scene),
     logoMat ? mPaint : decalMat(scene, "lmroofD", 256, 256, roofDraw(color, num)), root);
   roof.position.set(0, 0.55, -0.2); roof.rotation.x = -0.06; // the HIGH POINT of the car, slight rake
@@ -198,8 +200,9 @@ export function createLateModel(
   //     deck (right taller) — the late-model fastback that flows the cabin into the tail. ---
   for (const sx of [1, -1]) {
     const tall = sx > 0;
-    const sail = add(MeshBuilder.CreateBox("lmsail" + sx, { width: 0.13, height: tall ? 0.5 : 0.42, depth: 0.62 }, scene), mPaint, root);
-    sail.position.set(0.33 * sx, tall ? 0.37 : 0.33, -0.66); sail.rotation.x = 0.64;
+    // wide solid sail panels filling from the cabin out toward the body edge and sweeping to the deck
+    const sail = add(MeshBuilder.CreateBox("lmsail" + sx, { width: 0.22, height: tall ? 0.46 : 0.4, depth: 0.6 }, scene), mPaint, root);
+    sail.position.set(0.4 * sx, tall ? 0.34 : 0.31, -0.64); sail.rotation.x = 0.6;
   }
 
   // --- Rear deck + tail (wide) ---
