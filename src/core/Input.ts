@@ -45,6 +45,10 @@ export class InputManager {
   constructor() {
     this.setupTouch();
     window.addEventListener("keydown", (e) => {
+      // Ignore keys while typing in a text field (the driver-name box) so Space/arrows/letters reach
+      // the input instead of driving the car or firing K/J. Fixes not being able to type a space.
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       this.keys.add(e.code);
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].includes(e.code)) e.preventDefault();
       if (e.code === "KeyK") this.recalibrate();

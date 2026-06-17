@@ -191,7 +191,8 @@ async function boot() {
   reflectMute();
   const toggleMute = () => { motor.toggleMuted(); reflectMute(); };
   muteBtn?.addEventListener("click", toggleMute);
-  window.addEventListener("keydown", (e) => { if (e.code === "KeyM") toggleMute(); });
+  const typingInField = (e: KeyboardEvent) => { const t = e.target as HTMLElement | null; return !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable); };
+  window.addEventListener("keydown", (e) => { if (!typingInField(e) && e.code === "KeyM") toggleMute(); });
   const resumeAudio = () => motor.resume();
   window.addEventListener("pointerdown", resumeAudio, { once: true });
   window.addEventListener("keydown", resumeAudio, { once: true });
@@ -227,6 +228,7 @@ async function boot() {
   const cycleView = () => setView(view === "normal" ? "incar" : view === "incar" ? "aerial" : "normal");
   viewBtn?.addEventListener("click", cycleView);
   window.addEventListener("keydown", (e) => {
+    if (typingInField(e)) return; // don't let V/C fire while typing a driver name
     if (e.code === "KeyV") cycleView();
     else if (e.code === "KeyC") setView(view === "aerial" ? "normal" : "aerial"); // legacy aerial quick-toggle
   });

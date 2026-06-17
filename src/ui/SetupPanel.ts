@@ -27,6 +27,8 @@ export class SetupPanel {
     this.build();
     document.body.appendChild(this.root);
     window.addEventListener("keydown", (e) => {
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA")) return; // don't toggle while typing a name
       if (e.code === "KeyG") this.toggle();
       if (e.code === "Escape" && this.visible) this.toggle();
     });
