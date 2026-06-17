@@ -138,6 +138,11 @@ async function boot() {
   const setup = loadSetup();
   const race = new RaceManager(track, def.laps);
   const field = new Field(scene, plugin, shadow, track, def, race, setup, carClassDef);
+  // Early-career player speed easing: +15% on level 1, tapering to 0 by level 8 (player car only).
+  if (round < 7) {
+    const boost = 1 + 0.15 * (7 - round) / 7;
+    field.player.vehicle.cfg.engineForce *= boost;
+  }
   const player = race.racers.find((r) => r.isPlayer)!;
   // Trackside + pit marshals: stand around the track, and right cars that flip.
   const marshals = new Marshals(scene, track, shadow);
