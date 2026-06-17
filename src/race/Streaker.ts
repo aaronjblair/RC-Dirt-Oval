@@ -12,6 +12,9 @@ import { buildPerson } from "./Marshals";
 
 // Real-human size — she towers over the 1:10 toy cars, like the marshals/flag girl.
 const FIG_SCALE = 3.3;
+// How fast she runs her lap (units/s) — sets the lap duration as track.length / RUN_SPEED
+// (a brisk run: a typical lap lands ~15–20 s).
+const RUN_SPEED = 13;
 
 function mat(scene: Scene, name: string, c: Color3, opts: { rough?: number; metallic?: number; emissive?: number } = {}): PBRMaterial {
   const m = new PBRMaterial(name, scene);
@@ -145,8 +148,7 @@ export class Streaker {
   private timer = 6;
   private t = 0;
   private phase = 0;
-  private from = new Vector3();
-  private to = new Vector3();
+  private lapStart = 0; // arc-length where the current lap began
   private faceY = 0;
   private runDur = 2.6;
   private waveT = 0;
@@ -169,20 +171,12 @@ export class Streaker {
     this.chaser.setEnabled(false);
   }
 
+  /** Run a FULL LAP around the oval (the marshal chasing the whole way), then back to waiting. */
   private beginRun(): void {
-    const len = this.track.length;
-    const onFront = Math.random() < 0.5;
-    const s = (onFront ? 0 : len / 2) + (Math.random() - 0.5) * len * 0.18;
-    const sm = this.track.sampleAt(((s % len) + len) % len);
-    const W = this.track.def.width;
-    const side = Math.random() < 0.5 ? 1 : -1;
-    const a = sm.pos.add(sm.outward.scale(-side * (W / 2 + 3.5)));
-    const b = sm.pos.add(sm.outward.scale(side * (W / 2 + 3.5)));
-    this.from.copyFrom(a); this.to.copyFrom(b);
-    this.faceY = Math.atan2(b.x - a.x, b.z - a.z);
+    this.lapStart = Math.random() * this.track.length; // start anywhere on the oval
     this.t = 0;
-    this.runDur = 2.4 + Math.random() * 0.6;
-    this.shoulders[0].rotation.z = 0; // clear any wave abduction
+    this.runDur = this.track.length / RUN_SPEED;        // brisk, constant pace on any track
+    this.shoulders[0].rotation.z = 0;                   // clear any wave abduction
     this.state = "running";
     this.root.setEnabled(true);
     this.chaser.setEnabled(true);
@@ -232,16 +226,20 @@ export class Streaker {
     this.phase += dt * 13;
     if (this.t >= 1) {
       this.state = "waiting";
-      this.timer = 25 + Math.random() * 10; // loop: next dash in 25–35s
+      this.timer = 25 + Math.random() * 10; // loop: next lap in 25–35s
       this.root.setEnabled(false);
       this.chaser.setEnabled(false);
       return;
     }
 
-    const p = Vector3.Lerp(this.from, this.to, this.t);
+    // Run a full lap: drive arc-length s around the centerline, on the inner (bottom) groove.
+    const len = this.track.length;
+    const groove = -this.track.def.width * 0.15; // just inside the centerline
+    const s = (this.lapStart + this.t * len) % len;
+    const sm = this.track.sampleAt(s);
     const bob = Math.abs(Math.sin(this.phase)) * 0.06 * FIG_SCALE;
-    this.root.position.set(p.x, bob, p.z);
-    this.root.rotation.y = this.faceY;
+    this.root.position.set(sm.pos.x + sm.outward.x * groove, sm.pos.y + bob, sm.pos.z + sm.outward.z * groove);
+    this.root.rotation.y = Math.atan2(sm.tangent.x, sm.tangent.z); // face the way she's running
 
     const legA = Math.sin(this.phase) * 0.85;
     this.hips[0].rotation.x = legA;
@@ -251,10 +249,11 @@ export class Streaker {
     this.shoulders[1].rotation.x = -armA;
     this.hair.rotation.x = -0.2 + Math.sin(this.phase * 0.5) * 0.12;
 
-    const lag = Math.max(0, this.t - 0.16);
-    const cp = Vector3.Lerp(this.from, this.to, lag);
+    // the marshal a few units back along the track, chasing the whole lap
+    const sc = (((s - 3.5) % len) + len) % len;
+    const cm = this.track.sampleAt(sc);
     const cbob = Math.abs(Math.sin(this.phase * 0.9 + 1)) * 0.07 * FIG_SCALE;
-    this.chaser.position.set(cp.x, cbob, cp.z);
-    this.chaser.rotation.y = this.faceY;
+    this.chaser.position.set(cm.pos.x + cm.outward.x * groove, cm.pos.y + cbob, cm.pos.z + cm.outward.z * groove);
+    this.chaser.rotation.y = Math.atan2(cm.tangent.x, cm.tangent.z);
   }
 }
