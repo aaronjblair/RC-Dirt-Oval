@@ -172,31 +172,32 @@ export function createLateModel(
     ff.position.set(0.56 * sx, 0.06, 0.7);
   }
 
-  // --- Cabin: a LOW, ENCLOSED coupe greenhouse (NOT an open tub). A solid body-color shell CLOSES
-  //     the cockpit; dark glass for the steeply-raked windshield, side "opera" windows + backlight. ---
-  const cabin = add(MeshBuilder.CreateBox("lmcabin", { width: 0.82, height: 0.19, depth: 0.52 }, scene), mPaint, root);
-  cabin.position.set(0, 0.385, -0.14); // solid shell between cowl and deck — encloses the cockpit
-  const roof = add(MeshBuilder.CreateBox("lmroof", { width: 0.78, height: 0.05, depth: 0.54 }, scene),
+  // --- Cabin: a distinct ENCLOSED greenhouse that is the HIGH POINT of the wedge. Solid body-color
+  //     shell + body-color roof on top, set BACK, with a steeply raked dark-glass windshield and dark
+  //     side/back windows. The low nose + low deck below make the whole car a wedge, not a truck cab. ---
+  const cabin = add(MeshBuilder.CreateBox("lmcabin", { width: 0.78, height: 0.27, depth: 0.46 }, scene), mPaint, root);
+  cabin.position.set(0, 0.40, -0.18); // tall enclosed shell, set back
+  const roof = add(MeshBuilder.CreateBox("lmroof", { width: 0.74, height: 0.05, depth: 0.42 }, scene),
     logoMat ? mPaint : decalMat(scene, "lmroofD", 256, 256, roofDraw(color, num)), root);
-  roof.position.set(0, 0.485, -0.14); roof.rotation.x = -0.05; // LOW roof, slight (~14°) rake
-  // steeply raked windshield (dark glass) = the front of the cabin
-  const windshield = add(MeshBuilder.CreateBox("lmws", { width: 0.78, height: 0.28, depth: 0.03 }, scene), mGlass, root);
-  windshield.position.set(0, 0.4, 0.17); windshield.rotation.x = -0.72;
-  // side "opera" windows (dark glass insets, slightly proud of the shell)
+  roof.position.set(0, 0.55, -0.2); roof.rotation.x = -0.06; // the HIGH POINT of the car, slight rake
+  // long, steeply raked windshield (dark glass) sweeping from the cowl up to the roof front
+  const windshield = add(MeshBuilder.CreateBox("lmws", { width: 0.74, height: 0.36, depth: 0.03 }, scene), mGlass, root);
+  windshield.position.set(0, 0.42, 0.09); windshield.rotation.x = -0.6;
+  // side windows (dark glass)
   for (const sx of [1, -1]) {
-    const win = add(MeshBuilder.CreateBox("lmsw" + sx, { width: 0.03, height: 0.11, depth: 0.3 }, scene), mGlass, root);
-    win.position.set(0.42 * sx, 0.42, -0.12);
+    const win = add(MeshBuilder.CreateBox("lmsw" + sx, { width: 0.03, height: 0.16, depth: 0.3 }, scene), mGlass, root);
+    win.position.set(0.40 * sx, 0.46, -0.2);
   }
-  // raked backlight (dark glass) at the rear of the cabin
-  const rearWin = add(MeshBuilder.CreateBox("lmrw", { width: 0.78, height: 0.2, depth: 0.03 }, scene), mGlass, root);
-  rearWin.position.set(0, 0.4, -0.4); rearWin.rotation.x = 0.7;
+  // raked backlight (dark glass)
+  const rearWin = add(MeshBuilder.CreateBox("lmrw", { width: 0.74, height: 0.26, depth: 0.03 }, scene), mGlass, root);
+  rearWin.position.set(0, 0.42, -0.42); rearWin.rotation.x = 0.62;
 
-  // --- Sail panels (signature): BIG solid body panels sweeping from the roof rear down to the spoiler,
-  //     closing the rear quarters (right taller) — the late-model fastback, reads from any angle. ---
+  // --- Sail panels (signature): solid body panels sweeping LONG from the roof rear down to the low
+  //     deck (right taller) — the late-model fastback that flows the cabin into the tail. ---
   for (const sx of [1, -1]) {
     const tall = sx > 0;
-    const sail = add(MeshBuilder.CreateBox("lmsail" + sx, { width: 0.14, height: tall ? 0.36 : 0.30, depth: 0.56 }, scene), mPaint, root);
-    sail.position.set(0.34 * sx, tall ? 0.36 : 0.33, -0.62); sail.rotation.x = 0.5;
+    const sail = add(MeshBuilder.CreateBox("lmsail" + sx, { width: 0.13, height: tall ? 0.5 : 0.42, depth: 0.62 }, scene), mPaint, root);
+    sail.position.set(0.33 * sx, tall ? 0.37 : 0.33, -0.66); sail.rotation.x = 0.64;
   }
 
   // --- Rear deck + tail (wide) ---
@@ -230,11 +231,11 @@ export function createLateModel(
     edgeR("lmcF" + sx, 0.07, 0.30, "y", sx * 0.61, 0, 0.655);
     edgeR("lmcR" + sx, 0.07, 0.30, "y", sx * 0.61, 0, -0.895);
   }
-  // roof rail (LOW roof centre 0,0.485,-0.14; half-w 0.39, z 0.13..-0.41, top y 0.51)
-  for (const sx of [1, -1]) edgeR("lmroofE" + sx, 0.05, 0.54, "z", sx * 0.39, 0.51, -0.14);
-  edgeR("lmroofF", 0.05, 0.78, "x", 0, 0.51, 0.13);
-  edgeR("lmroofRr", 0.05, 0.78, "x", 0, 0.51, -0.41);
-  for (const sx of [1, -1]) { edgeR("lmrcF" + sx, 0.05, 0.1, "y", sx * 0.39, 0.485, 0.13); edgeR("lmrcR" + sx, 0.05, 0.1, "y", sx * 0.39, 0.485, -0.41); }
+  // roof rail (HIGH-POINT roof centre 0,0.55,-0.2; half-w 0.37, z 0.01..-0.41, top y 0.575)
+  for (const sx of [1, -1]) edgeR("lmroofE" + sx, 0.05, 0.42, "z", sx * 0.37, 0.575, -0.2);
+  edgeR("lmroofF", 0.05, 0.74, "x", 0, 0.575, 0.01);
+  edgeR("lmroofRr", 0.05, 0.74, "x", 0, 0.575, -0.41);
+  for (const sx of [1, -1]) { edgeR("lmrcF" + sx, 0.05, 0.1, "y", sx * 0.37, 0.55, 0.01); edgeR("lmrcR" + sx, 0.05, 0.1, "y", sx * 0.37, 0.55, -0.41); }
   // tail panel rounding (lmtail 1.2×0.24×0.06 at 0,0.12,-1.16)
   edgeR("lmtailTop", 0.05, 1.2, "x", 0, 0.24, -1.16);
   for (const sx of [1, -1]) edgeR("lmtailC" + sx, 0.05, 0.24, "y", sx * 0.6, 0.12, -1.16, mPaintDark);
@@ -245,8 +246,8 @@ export function createLateModel(
   add(MeshBuilder.CreateSphere("lmseat", { diameter: 0.46, segments: 12 }, scene), mCarbon, root).position.set(0, 0.10, -0.16);
   add(MeshBuilder.CreateCapsule("lmtorso", { radius: 0.15, height: 0.36, tessellation: 12 }, scene), mCarbon, root).position.set(0, 0.19, -0.09);
   const helmet = add(MeshBuilder.CreateSphere("lmhelmet", { diameter: 0.24, segments: 14 }, scene), flatMat(scene, "lmhel", new Color3(0.92, 0.92, 0.95), 0.2, 0.1), root);
-  helmet.position.set(0, 0.30, -0.02);
-  add(MeshBuilder.CreateBox("lmvisorM", { width: 0.17, height: 0.07, depth: 0.07 }, scene), mVisor, root).position.set(0, 0.30, 0.07);
+  helmet.position.set(0, 0.37, -0.04);
+  add(MeshBuilder.CreateBox("lmvisorM", { width: 0.17, height: 0.07, depth: 0.07 }, scene), mVisor, root).position.set(0, 0.37, 0.06);
 
   // --- Exhaust headers down the right side ---
   for (let i = 0; i < 3; i++) {
