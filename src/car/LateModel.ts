@@ -8,6 +8,7 @@ import "@babylonjs/core/Meshes/Builders/capsuleBuilder";
 import "@babylonjs/core/Meshes/Builders/tubeBuilder";
 import "@babylonjs/loaders/glTF"; // register the glTF loader so a real .glb body can be imported
 import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader";
+import type { AssetContainer } from "@babylonjs/core/assetContainer";
 import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import { RaycastVehicle, type WheelDef, type VehicleConfig } from "../physics/RaycastVehicle";
@@ -110,6 +111,18 @@ const LM_GLB_FILE = "latemodel.glb";
 const LM_GLB_SCALE = 1.0;
 const LM_GLB_OFFSET = new Vector3(0, -0.18, 0);
 const LM_GLB_YAW = 0; // radians — flip to Math.PI if the model faces backwards
+
+// Load the .glb ONCE (cached), then instantiate a clone per car — loading it per car floods the GPU
+// shader cache and hangs the boot. Resolves to null (and the cars keep their procedural body) if the
+// file is absent.
+let lmGlbCache: Promise<AssetContainer | null> | null = null;
+function loadLateModelGlb(scene: Scene): Promise<AssetContainer | null> {
+  if (!lmGlbCache) {
+    lmGlbCache = SceneLoader.LoadAssetContainerAsync(import.meta.env.BASE_URL, LM_GLB_FILE, scene)
+      .catch(() => null);
+  }
+  return lmGlbCache;
+}
 
 export function createLateModel(
   scene: Scene,
@@ -299,24 +312,29 @@ export function createLateModel(
   for (const m of parts) m.receiveShadows = true;
 
   const vehicle = new RaycastVehicle(scene, plugin, root, wheelDefs, cloneConfig(opts.config ?? LATE_MODEL_CONFIG));
-  // If a real model is present at public/latemodel.glb, swap it in for the procedural body. Loads
-  // async over the procedural fallback; silently keeps the procedural body if the file is absent.
-  SceneLoader.ImportMeshAsync("", import.meta.env.BASE_URL, LM_GLB_FILE, scene)
-    .then((res) => {
-      if (!res.meshes.length) return;
-      for (const m of parts) m.setEnabled(false); // hide the procedural body
-      const wrap = new TransformNode("lmGlbWrap", scene);
-      wrap.parent = root;
-      wrap.position.copyFrom(LM_GLB_OFFSET);
-      wrap.rotationQuaternion = Quaternion.RotationAxis(new Vector3(0, 1, 0), LM_GLB_YAW);
-      wrap.scaling.setAll(LM_GLB_SCALE);
-      res.meshes[0].parent = wrap; // keep the imported root's own (handedness) transform intact
-      for (const m of res.meshes) {
+  // If a real model is present at public/latemodel.glb, instantiate it as the body over the
+  // procedural fallback (loaded once, cloned per car). Silently keeps the procedural body if absent.
+  loadLateModelGlb(scene).then((container) => {
+    if (!container) return;
+    for (const m of parts) m.setEnabled(false); // hide the procedural body
+    const wrap = new TransformNode("lmGlbWrap", scene);
+    wrap.parent = root;
+    wrap.position.copyFrom(LM_GLB_OFFSET);
+    wrap.rotationQuaternion = Quaternion.RotationAxis(new Vector3(0, 1, 0), LM_GLB_YAW);
+    wrap.scaling.setAll(LM_GLB_SCALE);
+    const ents = container.instantiateModelsToScene((n) => "lmglb_" + n, false, { doNotInstantiate: true });
+    for (const node of ents.rootNodes) {
+      node.parent = wrap;
+      for (const m of node.getChildMeshes()) {
+        // Re-skin in the GAME'S paint (the car's assigned colour) and DROP the GLB's own textures —
+        // those + the scene's shadow/SSAO/IBL blow past WebGL's sampler limit. Dark glass by name.
+        const n = m.name.toLowerCase();
+        m.material = /glass|window|windshield|screen/.test(n) ? mGlass : mPaint;
         m.isPickable = false; m.receiveShadows = true;
-        if (shadow && m.getTotalVertices() > 0) shadow.addShadowCaster(m as Mesh);
+        if (shadow) shadow.addShadowCaster(m as Mesh);
       }
-    })
-    .catch(() => { /* no latemodel.glb present — keep the procedural body */ });
+    }
+  });
 
   return { root, vehicle, wheels, bodyParts: parts };
 }
