@@ -135,81 +135,81 @@ export function createLateModel(
   root.rotationQuaternion = Quaternion.RotationAxis(new Vector3(0, 1, 0), opts.yaw ?? 0);
 
   // Floor pan
-  add(MeshBuilder.CreateBox("lmpan", { width: 1.12, height: 0.05, depth: 2.05 }, scene), mCarbon, root).position.set(0, -0.18, -0.05);
+  add(MeshBuilder.CreateBox("lmpan", { width: 1.3, height: 0.05, depth: 2.05 }, scene), mCarbon, root).position.set(0, -0.18, -0.05);
 
-  // --- Lower body (the wide slab quarter panels / doors) ---
-  const lower = add(MeshBuilder.CreateBox("lmlower", { width: 1.0, height: 0.30, depth: 1.55 }, scene), mPaint, root);
+  // --- Lower body: a WIDE, low slab. Spec: ~78" wide on a ~103" wheelbase (≈0.76) — the body fills
+  //     out almost to the tires, so the fenders are flares off a wide body, not rings on a narrow one. ---
+  const lower = add(MeshBuilder.CreateBox("lmlower", { width: 1.22, height: 0.30, depth: 1.55 }, scene), mPaint, root);
   lower.position.set(0, 0.0, -0.12);
   // Door number / livery on each side (or the hero logo)
   for (const sx of [1, -1]) {
     if (logoMat) {
-      const lh = 0.24, lw = lh / logoAspect;
+      const lh = 0.26, lw = lh / logoAspect;
       const lp = add(MeshBuilder.CreatePlane("lmdoor" + sx, { width: lw, height: lh }, scene), logoMat, root);
       lp.rotation.y = sx > 0 ? -Math.PI / 2 : Math.PI / 2; lp.scaling.x = sx;
-      lp.position.set(0.505 * sx, 0.02, -0.05);
+      lp.position.set(0.615 * sx, 0.02, -0.05);
     } else {
       const door = add(MeshBuilder.CreateBox("lmdoor" + sx, { width: 0.02, height: 0.27, depth: 1.0 }, scene),
         decalMat(scene, "lmdoorD" + sx, 512, 256, lateLiveryDraw(color, num, name), sx < 0), root);
-      door.position.set(0.505 * sx, 0.0, -0.1);
+      door.position.set(0.615 * sx, 0.0, -0.1);
     }
   }
 
-  // --- Front clip: LOW POINTED nose + wide air dam, sloped hood up to the cowl ---
-  add(MeshBuilder.CreateBox("lmvalance", { width: 1.12, height: 0.22, depth: 0.14 }, scene), mBlack, root).position.set(0, -0.06, 1.12); // wide low air dam
-  const noseTop = add(MeshBuilder.CreateBox("lmnoseTop", { width: 0.9, height: 0.05, depth: 0.30 }, scene), mPaint, root);
-  noseTop.position.set(0, 0.04, 0.98);
+  // --- Front clip: a LONG, LOW, pointed nose (spec: the nose reaches well forward of the front hub),
+  //     a wide air dam, and a long sloped hood up to the cowl. ---
+  add(MeshBuilder.CreateBox("lmvalance", { width: 1.3, height: 0.22, depth: 0.16 }, scene), mBlack, root).position.set(0, -0.07, 1.18); // wide low air dam
+  const hood = add(MeshBuilder.CreateBox("lmhood", { width: 1.14, height: 0.05, depth: 1.02 }, scene), mPaint, root);
+  hood.position.set(0, 0.16, 0.5); hood.rotation.x = 0.16; // long nose-down wedge
+  const noseTop = add(MeshBuilder.CreateBox("lmnoseTop", { width: 1.05, height: 0.05, depth: 0.34 }, scene), mPaint, root);
+  noseTop.position.set(0, 0.02, 1.04);
   // rounded nose point: a low, wide, forward sphere tapering the nose to a soft rounded point
   const noseTip = add(MeshBuilder.CreateSphere("lmnoseTip", { diameter: 0.5, segments: 12 }, scene), mPaint, root);
-  noseTip.position.set(0, 0.02, 1.16); noseTip.scaling.set(1.7, 0.5, 0.9);
-  const hood = add(MeshBuilder.CreateBox("lmhood", { width: 0.98, height: 0.05, depth: 0.92 }, scene), mPaint, root);
-  hood.position.set(0, 0.17, 0.55); hood.rotation.x = 0.18; // nose-down wedge
+  noseTip.position.set(0, 0.0, 1.26); noseTip.scaling.set(2.0, 0.42, 1.0);
   // front fender tops (body color) between the hood and the front wheels
   for (const sx of [1, -1]) {
-    const ff = add(MeshBuilder.CreateBox("lmff" + sx, { width: 0.14, height: 0.22, depth: 0.7 }, scene), mPaint, root);
-    ff.position.set(0.48 * sx, 0.08, 0.7);
+    const ff = add(MeshBuilder.CreateBox("lmff" + sx, { width: 0.16, height: 0.20, depth: 0.72 }, scene), mPaint, root);
+    ff.position.set(0.56 * sx, 0.06, 0.7);
   }
 
-  // --- Greenhouse: windshield, roof (set back), rear window, cabin sides ---
-  const windshield = add(MeshBuilder.CreateBox("lmws", { width: 0.82, height: 0.36, depth: 0.04 }, scene), mGlass, root);
+  // --- Greenhouse: chopped low roof, raked windshield, set-back cabin (roof narrower than the body
+  //     for tumblehome) ---
+  const windshield = add(MeshBuilder.CreateBox("lmws", { width: 0.84, height: 0.36, depth: 0.04 }, scene), mGlass, root);
   windshield.position.set(0, 0.41, 0.31); windshield.rotation.x = -0.6; // raked lower
-  // cabin side body panels (carry the roof; leave the window area dark glass below)
   for (const sx of [1, -1]) {
     const cs = add(MeshBuilder.CreateBox("lmcs" + sx, { width: 0.05, height: 0.38, depth: 0.62 }, scene), mPaint, root);
-    cs.position.set(0.40 * sx, 0.40, -0.04);
+    cs.position.set(0.42 * sx, 0.40, -0.04);
   }
   // A-pillars
   for (const sx of [1, -1]) {
     const ap = add(MeshBuilder.CreateCylinder("lmap" + sx, { diameter: 0.05, height: 0.46, tessellation: 8 }, scene), mChrome, root);
-    ap.position.set(0.36 * sx, 0.40, 0.27); ap.rotation.x = -0.6;
+    ap.position.set(0.38 * sx, 0.40, 0.27); ap.rotation.x = -0.6;
   }
-  const roof = add(MeshBuilder.CreateBox("lmroof", { width: 0.78, height: 0.05, depth: 0.66 }, scene),
+  const roof = add(MeshBuilder.CreateBox("lmroof", { width: 0.8, height: 0.05, depth: 0.72 }, scene),
     logoMat ? mPaint : decalMat(scene, "lmroofD", 256, 256, roofDraw(color, num)), root);
-  roof.position.set(0, 0.62, -0.06); // chopped lower roof
-  const rearWin = add(MeshBuilder.CreateBox("lmrw", { width: 0.78, height: 0.30, depth: 0.04 }, scene), mGlass, root);
-  rearWin.position.set(0, 0.44, -0.42); rearWin.rotation.x = 0.6;
+  roof.position.set(0, 0.62, -0.08); // chopped low roof
+  const rearWin = add(MeshBuilder.CreateBox("lmrw", { width: 0.8, height: 0.30, depth: 0.04 }, scene), mGlass, root);
+  rearWin.position.set(0, 0.44, -0.46); rearWin.rotation.x = 0.6;
 
-  // --- Sail panels (signature): bridge the roof rear edge down to the rear deck. The RIGHT sail
-  //     is taller than the left, like a real dirt late model. ---
+  // --- Sail panels (signature): BIG body panels bridging the roof rear down to the deck (right taller) ---
   for (const sx of [1, -1]) {
     const tall = sx > 0; // right side taller
-    const sail = add(MeshBuilder.CreateBox("lmsail" + sx, { width: 0.05, height: tall ? 0.52 : 0.40, depth: 0.5 }, scene), mPaint, root);
-    sail.position.set(0.36 * sx, tall ? 0.42 : 0.36, -0.6); sail.rotation.x = 0.5;
+    const sail = add(MeshBuilder.CreateBox("lmsail" + sx, { width: 0.09, height: tall ? 0.5 : 0.4, depth: 0.62 }, scene), mPaint, root);
+    sail.position.set(0.42 * sx, tall ? 0.40 : 0.35, -0.64); sail.rotation.x = 0.5;
   }
 
-  // --- Rear deck + tail ---
-  const deck = add(MeshBuilder.CreateBox("lmdeck", { width: 0.95, height: 0.05, depth: 0.55 }, scene), mPaint, root);
-  deck.position.set(0, 0.30, -0.78); deck.rotation.x = 0.2;
-  add(MeshBuilder.CreateBox("lmtail", { width: 0.98, height: 0.24, depth: 0.06 }, scene), mPaintDark, root).position.set(0, 0.12, -1.12);
+  // --- Rear deck + tail (wide) ---
+  const deck = add(MeshBuilder.CreateBox("lmdeck", { width: 1.16, height: 0.05, depth: 0.6 }, scene), mPaint, root);
+  deck.position.set(0, 0.28, -0.82); deck.rotation.x = 0.18;
+  add(MeshBuilder.CreateBox("lmtail", { width: 1.2, height: 0.24, depth: 0.06 }, scene), mPaintDark, root).position.set(0, 0.12, -1.16);
 
-  // --- Big rear spoiler: a tall flat blade standing off the rear deck, between two triangular
-  //     side boards (the signature dirt-late-model rear). ---
-  const blade = add(MeshBuilder.CreateBox("lmspoiler", { width: 1.0, height: 0.05, depth: 0.36 }, scene), mPaint, root);
-  blade.position.set(0, 0.56, -1.0); blade.rotation.x = 0.42; // stands up clearly above the deck
-  add(MeshBuilder.CreateBox("lmspoilerLip", { width: 1.0, height: 0.10, depth: 0.04 }, scene), mBlack, root)
-    .position.set(0, 0.62, -1.12); // black trailing wickerbill so it reads against the body
+  // --- Big rear spoiler (spec: up to 72" wide, 8" tall): a WIDE blade on triangular side boards ---
+  const blade = add(MeshBuilder.CreateBox("lmspoiler", { width: 1.18, height: 0.05, depth: 0.38 }, scene), mPaint, root);
+  blade.position.set(0, 0.54, -1.04); blade.rotation.x = 0.42;
+  add(MeshBuilder.CreateBox("lmspoilerLip", { width: 1.18, height: 0.10, depth: 0.04 }, scene), mBlack, root)
+    .position.set(0, 0.60, -1.16); // black trailing wickerbill
   for (const sx of [1, -1]) {
-    const sb = add(MeshBuilder.CreateBox("lmsb" + sx, { width: 0.05, height: 0.34, depth: 0.42 }, scene), mPaint, root);
-    sb.position.set(0.48 * sx, 0.42, -1.0);
+    const sb = add(MeshBuilder.CreateBox("lmsb" + sx, { width: 0.05, height: 0.34, depth: 0.44 }, scene), mPaint, root);
+    sb.position.set(0.57 * sx, 0.40, -1.04);
   }
 
   // --- Bevel/round the hard box edges so the body reads as rolled tin, not a slab ---
@@ -220,25 +220,24 @@ export function createLateModel(
     else if (axis === "z") c.rotation.x = Math.PI / 2;
     return c;
   };
-  // lower body (centre 0,0,-0.12; half-w 0.5, top y +0.15, front z 0.655, rear z -0.895)
-  for (const sx of [1, -1]) edgeR("lmbevTop" + sx, 0.07, 1.55, "z", sx * 0.5, 0.15, -0.12);   // top side rolls
-  edgeR("lmbevFront", 0.07, 1.0, "x", 0, 0.15, 0.655);                                          // top front roll
-  edgeR("lmbevRear", 0.07, 1.0, "x", 0, 0.15, -0.895);                                          // top rear roll
+  // lower body (centre 0,0,-0.12; half-w 0.61, top y +0.15, front z 0.655, rear z -0.895)
+  for (const sx of [1, -1]) edgeR("lmbevTop" + sx, 0.07, 1.55, "z", sx * 0.61, 0.15, -0.12);  // top side rolls
+  edgeR("lmbevFront", 0.07, 1.22, "x", 0, 0.15, 0.655);                                         // top front roll
+  edgeR("lmbevRear", 0.07, 1.22, "x", 0, 0.15, -0.895);                                         // top rear roll
   for (const sx of [1, -1]) {                                                                   // rounded vertical corners
-    edgeR("lmcF" + sx, 0.07, 0.30, "y", sx * 0.5, 0, 0.655);
-    edgeR("lmcR" + sx, 0.07, 0.30, "y", sx * 0.5, 0, -0.895);
+    edgeR("lmcF" + sx, 0.07, 0.30, "y", sx * 0.61, 0, 0.655);
+    edgeR("lmcR" + sx, 0.07, 0.30, "y", sx * 0.61, 0, -0.895);
   }
-  // roof: a rounded rail all the way around the perimeter + rounded corners (centre 0,0.71,-0.06;
-  // half-w 0.39, z 0.27..-0.39, top y 0.735) so it reads as a crowned roof, not a slab
-  for (const sx of [1, -1]) edgeR("lmroofE" + sx, 0.05, 0.66, "z", sx * 0.39, 0.645, -0.06);
-  edgeR("lmroofF", 0.05, 0.78, "x", 0, 0.645, 0.27);
-  edgeR("lmroofRr", 0.05, 0.78, "x", 0, 0.645, -0.39);
-  for (const sx of [1, -1]) { edgeR("lmrcF" + sx, 0.05, 0.1, "y", sx * 0.39, 0.62, 0.27); edgeR("lmrcR" + sx, 0.05, 0.1, "y", sx * 0.39, 0.62, -0.39); }
-  // tail panel rounding (lmtail 0.98×0.24×0.06 at 0,0.12,-1.12)
-  edgeR("lmtailTop", 0.05, 0.98, "x", 0, 0.24, -1.12);
-  for (const sx of [1, -1]) edgeR("lmtailC" + sx, 0.05, 0.24, "y", sx * 0.49, 0.12, -1.12, mPaintDark);
-  // spoiler side-board top rounding (lmsb at ±0.48,0.42,-1.0; top y 0.59)
-  for (const sx of [1, -1]) edgeR("lmsbR" + sx, 0.04, 0.42, "z", sx * 0.48, 0.59, -1.0);
+  // roof rail (centre 0,0.62,-0.08; half-w 0.4, z 0.28..-0.44, top y 0.645)
+  for (const sx of [1, -1]) edgeR("lmroofE" + sx, 0.05, 0.72, "z", sx * 0.4, 0.645, -0.08);
+  edgeR("lmroofF", 0.05, 0.8, "x", 0, 0.645, 0.28);
+  edgeR("lmroofRr", 0.05, 0.8, "x", 0, 0.645, -0.44);
+  for (const sx of [1, -1]) { edgeR("lmrcF" + sx, 0.05, 0.1, "y", sx * 0.4, 0.62, 0.28); edgeR("lmrcR" + sx, 0.05, 0.1, "y", sx * 0.4, 0.62, -0.44); }
+  // tail panel rounding (lmtail 1.2×0.24×0.06 at 0,0.12,-1.16)
+  edgeR("lmtailTop", 0.05, 1.2, "x", 0, 0.24, -1.16);
+  for (const sx of [1, -1]) edgeR("lmtailC" + sx, 0.05, 0.24, "y", sx * 0.6, 0.12, -1.16, mPaintDark);
+  // spoiler side-board top rounding (lmsb at ±0.57,0.40,-1.04; top y 0.57)
+  for (const sx of [1, -1]) edgeR("lmsbR" + sx, 0.04, 0.44, "z", sx * 0.57, 0.57, -1.04);
 
   // --- Driver (visible through the windshield) ---
   add(MeshBuilder.CreateSphere("lmseat", { diameter: 0.5, segments: 12 }, scene), mCarbon, root).position.set(0, 0.16, -0.15);
