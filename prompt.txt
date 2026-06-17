@@ -139,10 +139,10 @@ TRACKS (data-driven)
 - generateCareer() returns 15 progressively harder ovals: corner radius shrinks, straights lengthen,
   width narrows, grip drops + falls off faster, ruts and AI skill rise, laps and field grow. Each
   round gets a DISTINCT dirt color AND backdrop theme. Banking ramps from flat early ovals to
-  high-banks (~0.20-0.24 rad) late. DAY/NIGHT IS PER-ROUND: the calendar puts NIGHT on rounds 8, 12,
-  and 15, so the season has a real day->night arc and daytime rounds show the cars in full light.
-  ?day/?night force either for previews. Keep night bright enough that the cars read (don't crush
-  them into shadow).
+  high-banks (~0.20-0.24 rad) late. THE GAME RUNS AT NIGHT, GAME-WIDE (def.night = true forced in
+  main.ts) — dark sky, crescent moon + starfield, lit lamp towers. The night look is the game's
+  identity; DO NOT ship daytime racing. ?day is a dev-only preview override. Keep night bright enough
+  that the cars read (don't crush them into shadow).
 
 CAREER / CHAMPIONSHIP
 - Points by finish (25,20,16,13,11,9,7,5,4,3,2,1). Standings, save/load in localStorage, PER CAR CLASS.

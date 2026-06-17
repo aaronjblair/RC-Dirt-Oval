@@ -82,11 +82,10 @@ async function boot() {
     ? Math.min(Math.max(0, parseInt(roundParam, 10) - 1) || 0, careerTracks.length - 1)
     : Math.min(career.round, careerTracks.length - 1);
   const def = careerTracks[round];
-  // Day/night is per-round (the career calendar puts night on rounds 8/12/15) so the season has a
-  // real day→night arc and daytime rounds show the cars off in full light. `?day`/`?night` force it.
-  const lightParam = new URLSearchParams(location.search);
-  if (lightParam.has("day")) def.night = false;
-  else if (lightParam.has("night")) def.night = true;
+  // HARD RULE: RCSprint is set at NIGHT, game-wide (lit lamp towers + crescent moon + starfield).
+  // Do NOT ship daytime racing — the night look is the game's identity (see CLAUDE.md). `?day` is a
+  // DEV-ONLY preview override; it must never be the shipped default.
+  def.night = !new URLSearchParams(location.search).has("day");
   def.fieldSize = 8 + Math.floor(Math.random() * 5); // each race runs a random 8–12-car field
 
   const cam = new DriverStandCamera(scene, canvas);

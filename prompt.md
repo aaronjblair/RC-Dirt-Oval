@@ -144,9 +144,10 @@ grid and verify before calling it done.**
   to ~0.20–0.24 rad). Distinct dirt color + backdrop per round. **Each race runs a random 8–12-car
   field** (`def.fieldSize = 8 + rand(0..4)` per load; keep the colour `PALETTE` + `DRIVER_NUMBERS`
   ≥ 12 long).
-- **Day/night is per-round** (the career calendar puts **night on rounds 8/12/15**) so the season has
-  a real day→night arc and daytime rounds show the cars off in full light. `?day`/`?night` force it
-  for previews.
+- **The game runs at NIGHT, game-wide** (`def.night = true` forced in `main.ts` — dark sky, crescent
+  moon + starfield, lit lamp towers). This night look is the game's identity; **do NOT ship daytime
+  racing.** The calendar still marks rounds 8/12/15; `?day` is a **dev-only** preview override. Keep
+  night bright enough that the cars read (don't crush them into shadow).
 
 ## Marshals, flag girl, easter egg (all REAL-WORLD size — see WORLD SCALE)
 - **6 track marshals**: **2 sit in camp chairs at the two infield ends** (one chair per end) and
