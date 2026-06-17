@@ -24,7 +24,7 @@ A 410 winged dirt sprint car (Team Losi 22S-style at 1:10):
 | `corneringStiffness` | `9` | low — lateral slip is arrested slowly → it drifts |
 | `slipSteer` | `0.6` | **loose**: a lateral slide rotates the car a lot (oversteer) |
 | `throttleSteer` | `0.015` | strong **power-steer** — throttle rotates it through the corner |
-| `engineForce` | `17` | violent acceleration |
+| `engineForce` | `19.55` | violent acceleration (top speed = `engineForce/rollResist`) |
 | `maxSteer` / `steerSpeedFalloff` | `0.55` / `0.05` | quick, darty turn-in |
 
 To make it **looser/twitchier**, raise `slipSteer`/`throttleSteer` and lower `corneringStiffness`. To make the wing matter more, raise `downforce`. Garage sliders (`CarSetup`) scale **around** this baseline via `applySetup(cfg, setup, DEFAULT_CONFIG)`, so re-applying never compounds — tune the baseline, not the sliders.

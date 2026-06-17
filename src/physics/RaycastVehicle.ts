@@ -49,7 +49,7 @@ export const DEFAULT_CONFIG: VehicleConfig = {
   tireGrip: 1.7,
   corneringStiffness: 9,
   rollResist: 0.85,
-  engineForce: 17,
+  engineForce: 19.55, // sprint baseline — top speed is engineForce/rollResist (15% faster than the old 17)
   brakeForce: 22,
   maxSteer: 0.55,
   steerSpeedFalloff: 0.05,
