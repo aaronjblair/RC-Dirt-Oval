@@ -337,18 +337,6 @@ export function createCar(
     }
   }
 
-  // White racing stripe down the centerline (hero / player car only) — nose → tub → tail.
-  if (logoUrl) {
-    const mStripe = flatMat(scene, "stripe", new Color3(0.95, 0.95, 0.97), 0.3, 0.05);
-    const stripe = (n: string, w: number, d: number, x: number, y: number, z: number, rx: number) => {
-      const s = add(MeshBuilder.CreateBox(n, { width: w, height: 0.02, depth: d }, scene), mStripe, root);
-      s.position.set(x, y, z); s.rotation.x = rx; return s;
-    };
-    stripe("stripeFwd", 0.12, 0.5, 0, 0.28, 0.27, 0);     // tub crown ahead of the cockpit
-    stripe("stripeNose", 0.11, 0.62, 0, 0.10, 0.78, 0.5); // down the nose cone, following its slope
-    stripe("stripeTail", 0.12, 0.6, 0, 0.32, -0.78, -0.2); // up over the tail cowl behind the cockpit
-  }
-
   // Tail cowl — smooth lathe teardrop (the sprint car fuel tank/tail)
   const tailProfile: Vector3[] = [];
   for (let i = 0; i <= 10; i++) { const t = i / 10; tailProfile.push(new Vector3(0.02 + Math.sin((1 - t) * Math.PI * 0.5) * 0.34, t * 0.8, 0)); }
@@ -484,6 +472,31 @@ export function createCar(
       np.position.set((WW / 2) * sx + sx * 0.006, 0.16, -0.42);
     }
   }
+  // White racing stripe with a thin black outline, down the centerline (hero / player car only).
+  // ~1/4 the car's width (body = 1.0u) running nose → tub → tail AND up over the top wing.
+  // Each segment is a white box riding the body/wing crown, sitting on a slightly larger black
+  // box so a fine black border peeks out on every edge. The open cockpit interrupts the body run;
+  // on the wing deck the Super Jay logo overlays the stripe's centre (logo wins, like the cockpit).
+  if (logoUrl) {
+    const SW = 0.25;   // stripe width ≈ 1/4 car width
+    const EDGE = 0.03; // black outline that peeks out on each side / end
+    const mStripe = flatMat(scene, "stripe", new Color3(0.95, 0.95, 0.97), 0.3, 0.05);
+    const mStripeEdge = flatMat(scene, "stripeEdge", new Color3(0.02, 0.02, 0.02), 0.45, 0.05);
+    const striped = (n: string, d: number, x: number, y: number, z: number, rx: number, parent: TransformNode) => {
+      const e = add(MeshBuilder.CreateBox(n + "Edge", { width: SW + EDGE * 2, height: 0.02, depth: d + EDGE * 2 }, scene), mStripeEdge, parent);
+      e.position.set(x, y - 0.004, z); e.rotation.x = rx;
+      const s = add(MeshBuilder.CreateBox(n, { width: SW, height: 0.02, depth: d }, scene), mStripe, parent);
+      s.position.set(x, y, z); s.rotation.x = rx; return s;
+    };
+    // Body: nose cone → forward tub → tail cowl (open cockpit z≈-0.2..0.12 left clear).
+    striped("stripeNose", 0.62, 0, 0.12, 0.78, 0.5, root);
+    striped("stripeFwd", 0.5, 0, 0.30, 0.27, 0, root);
+    striped("stripeTail", 0.6, 0, 0.34, -0.78, -0.2, root);
+    // Wing: across the down-swept front foil (logo-free) and the rear deck (logo overlays centre).
+    striped("stripeWingFoil", 0.9, 0, -0.15, 0.48, 0.52, wingPivot);
+    striped("stripeWingDeck", 0.78, 0, 0.027, -0.34, 0, wingPivot);
+  }
+
   // Wing tree: tall main posts + raked front stays carrying the wing off the cage.
   for (const sx of [1, -1]) {
     const post = add(MeshBuilder.CreateCylinder("wpost" + sx, { diameter: 0.05, height: 0.92, tessellation: 8 }, scene), mChrome, root);

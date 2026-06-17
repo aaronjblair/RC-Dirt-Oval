@@ -29,12 +29,12 @@ export interface EnvHandles {
  * reflections, ACES tone mapping, bloom, SSAO grounding, FXAA + sharpen, and a
  * light dusty haze.
  */
-export function setupEnvironment(scene: Scene, camera: Camera, night = false): EnvHandles {
+export function setupEnvironment(scene: Scene, camera: Camera, night = false, highQuality = true): EnvHandles {
   // --- IBL for reflections only (not used as the visible sky) ---
   const env = CubeTexture.CreateFromPrefilteredData(import.meta.env.BASE_URL + "env/environment.env", scene);
   env.gammaSpace = false;
   scene.environmentTexture = env;
-  scene.environmentIntensity = night ? 0.12 : 0.5;
+  scene.environmentIntensity = night ? 0.16 : 0.5; // richer metallic reflections at night (still dark)
 
   // --- Atmospheric sky dome (inclination/azimuth config) ---
   const sky = new SkyMaterial("skyMat", scene);
@@ -64,7 +64,7 @@ export function setupEnvironment(scene: Scene, camera: Camera, night = false): E
 
   // --- Post pipeline ---
   const pipeline = new DefaultRenderingPipeline("default", true, scene, [camera]);
-  pipeline.samples = 4;
+  pipeline.samples = highQuality ? 8 : 4; // 8x MSAA on desktop; phones keep the lighter 4x
   pipeline.fxaaEnabled = true;
 
   pipeline.imageProcessingEnabled = true;
@@ -72,15 +72,15 @@ export function setupEnvironment(scene: Scene, camera: Camera, night = false): E
   ip.toneMappingEnabled = true;
   ip.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
   ip.exposure = 1.0;
-  ip.contrast = 1.18;
+  ip.contrast = 1.25;
   ip.vignetteEnabled = true;
   ip.vignetteWeight = 1.1;
   ip.vignetteColor = new Color4(0, 0, 0, 0);
 
   pipeline.bloomEnabled = true;
   pipeline.bloomThreshold = 0.9;
-  pipeline.bloomWeight = 0.22;
-  pipeline.bloomKernel = 48;
+  pipeline.bloomWeight = 0.26;
+  pipeline.bloomKernel = 64;
   pipeline.bloomScale = 0.5;
 
   pipeline.sharpenEnabled = true;
@@ -88,10 +88,10 @@ export function setupEnvironment(scene: Scene, camera: Camera, night = false): E
 
   try {
     const ssao = new SSAO2RenderingPipeline("ssao", scene, { ssaoRatio: 0.5, blurRatio: 0.5 }, [camera]);
-    ssao.radius = 0.9;
+    ssao.radius = 1.1;
     ssao.totalStrength = 1.0;
     ssao.base = 0.2;
-    ssao.samples = 8;
+    ssao.samples = highQuality ? 16 : 8; // smoother occlusion on desktop; phones keep 8
     ssao.maxZ = 90;
   } catch (e) {
     console.warn("[RCSprint] SSAO unavailable", e);

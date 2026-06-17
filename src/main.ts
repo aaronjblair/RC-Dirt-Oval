@@ -89,7 +89,7 @@ async function boot() {
 
   const cam = new DriverStandCamera(scene, canvas);
   scene.activeCamera = cam.camera;
-  const env = setupEnvironment(scene, cam.camera, def.night);
+  const env = setupEnvironment(scene, cam.camera, def.night, !coarsePointer); // desktop gets the quality boost; phones stay lighter
 
   // Aerial / spectator camera (toggle with C) — high view of the whole oval
   const aerialCam = new UniversalCamera("aerial", new Vector3(0, 105, -55), scene);
@@ -118,9 +118,9 @@ async function boot() {
   ambient.intensity = def.night ? 0.14 : 0.3;
   ambient.groundColor = def.night ? new Color3(0.06, 0.06, 0.1) : new Color3(0.4, 0.32, 0.24);
 
-  const shadow = new ShadowGenerator(1024, sun);
+  const shadow = new ShadowGenerator(coarsePointer ? 1024 : 2048, sun); // sharper shadows on desktop; phones keep 1024
   shadow.useBlurExponentialShadowMap = true;
-  shadow.blurKernel = 16;
+  shadow.blurKernel = 24;
   shadow.darkness = 0.4;
   shadow.bias = 0.0018;
   // Re-render the shadow map every OTHER frame (REFRESHRATE_RENDER_ONEVERYTWOFRAMES = 2): the map

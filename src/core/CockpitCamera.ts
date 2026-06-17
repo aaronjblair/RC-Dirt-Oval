@@ -46,8 +46,9 @@ export class CockpitCamera {
     this.eye.parent = carRoot;
   }
 
-  /** Per-frame subtle driver motion (lean into corners, light shake, speed-FOV). */
-  update(dt: number, vehicle: RaycastVehicle): void {
+  /** Per-frame subtle driver motion (lean into corners, light shake, speed-FOV). `zoom` (1 = default,
+   *  >1 = zoomed in) is the user's manual zoom, applied to the field of view. */
+  update(dt: number, vehicle: RaycastVehicle, zoom = 1): void {
     if (dt <= 0) return;
     const speed = vehicle.speed;
     const heading = vehicle.heading;
@@ -73,6 +74,6 @@ export class CockpitCamera {
 
     this.camera.position.set(this.shakeX, this.shakeY, 0);
     this.camera.rotation.set(BASE_PITCH + this.shakeY * 0.4, this.look, this.lean);
-    this.camera.fov = BASE_FOV + Math.min(0.07, speed * 0.003); // subtle sense of speed (kept mild so it never goes fisheye)
+    this.camera.fov = BASE_FOV / zoom + Math.min(0.07, speed * 0.003); // user zoom + subtle sense of speed (kept mild so it never goes fisheye)
   }
 }
