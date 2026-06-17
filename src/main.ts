@@ -113,11 +113,11 @@ async function boot() {
 
   const sun = new DirectionalLight("sun", SUN_DIR, scene);
   sun.position = SUN_DIR.scale(-90);
-  sun.intensity = def.night ? 0.5 : 3.4; // a brighter cool moon-key at night so cars read as 3D
-  if (def.night) sun.diffuse = new Color3(0.55, 0.65, 0.95);
+  sun.intensity = def.night ? 0.25 : 3.4; // moonlight only at night; the lamp towers carry the scene
+  if (def.night) sun.diffuse = new Color3(0.5, 0.6, 0.9);
   const ambient = new HemisphericLight("ambient", new Vector3(0, 1, 0), scene);
-  ambient.intensity = def.night ? 0.22 : 0.3;
-  ambient.groundColor = def.night ? new Color3(0.08, 0.09, 0.14) : new Color3(0.4, 0.32, 0.24);
+  ambient.intensity = def.night ? 0.14 : 0.3;
+  ambient.groundColor = def.night ? new Color3(0.06, 0.06, 0.1) : new Color3(0.4, 0.32, 0.24);
 
   const shadow = new ShadowGenerator(1024, sun);
   shadow.useBlurExponentialShadowMap = true;

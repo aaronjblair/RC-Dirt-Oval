@@ -34,7 +34,7 @@ export function setupEnvironment(scene: Scene, camera: Camera, night = false): E
   const env = CubeTexture.CreateFromPrefilteredData(import.meta.env.BASE_URL + "env/environment.env", scene);
   env.gammaSpace = false;
   scene.environmentTexture = env;
-  scene.environmentIntensity = night ? 0.2 : 0.5;
+  scene.environmentIntensity = night ? 0.12 : 0.5;
 
   // --- Atmospheric sky dome (inclination/azimuth config) ---
   const sky = new SkyMaterial("skyMat", scene);
@@ -52,7 +52,7 @@ export function setupEnvironment(scene: Scene, camera: Camera, night = false): E
   skybox.infiniteDistance = true;
   skybox.isPickable = false;
 
-  scene.clearColor = night ? new Color4(0.05, 0.06, 0.11, 1) : new Color4(0.5, 0.65, 0.85, 1);
+  scene.clearColor = night ? new Color4(0.03, 0.04, 0.07, 1) : new Color4(0.5, 0.65, 0.85, 1);
   scene.ambientColor = night ? new Color3(0.1, 0.11, 0.16) : new Color3(0.45, 0.45, 0.45);
 
   if (night) addNightSky(scene); // crescent moon + scattered stars overhead
