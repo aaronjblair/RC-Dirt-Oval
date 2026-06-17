@@ -6,6 +6,8 @@ import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import "@babylonjs/core/Meshes/Builders/capsuleBuilder";
 import "@babylonjs/core/Meshes/Builders/tubeBuilder";
+import "@babylonjs/loaders/glTF"; // register the glTF loader so a real .glb body can be imported
+import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader";
 import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import { RaycastVehicle, type WheelDef, type VehicleConfig } from "../physics/RaycastVehicle";
@@ -98,6 +100,16 @@ function buildFender(scene: Scene, name: string, wheelR: number, mat: PBRMateria
   t.material = mat;
   return t;
 }
+
+// --- Real 3D body (optional): drop a low-poly dirt-late-model model at `public/latemodel.glb` and it
+//     becomes the body, replacing the procedural one (which is the fallback shown if no .glb loads).
+//     Tune these to fit the model to the chassis/tires once the file is in place. See the
+//     `late-car-model` skill. The glTF loader (RH→LH) conversion is preserved by parenting the model
+//     under a wrapper node rather than touching the imported root's own transform. ---
+const LM_GLB_FILE = "latemodel.glb";
+const LM_GLB_SCALE = 1.0;
+const LM_GLB_OFFSET = new Vector3(0, -0.18, 0);
+const LM_GLB_YAW = 0; // radians — flip to Math.PI if the model faces backwards
 
 export function createLateModel(
   scene: Scene,
@@ -287,5 +299,24 @@ export function createLateModel(
   for (const m of parts) m.receiveShadows = true;
 
   const vehicle = new RaycastVehicle(scene, plugin, root, wheelDefs, cloneConfig(opts.config ?? LATE_MODEL_CONFIG));
+  // If a real model is present at public/latemodel.glb, swap it in for the procedural body. Loads
+  // async over the procedural fallback; silently keeps the procedural body if the file is absent.
+  SceneLoader.ImportMeshAsync("", import.meta.env.BASE_URL, LM_GLB_FILE, scene)
+    .then((res) => {
+      if (!res.meshes.length) return;
+      for (const m of parts) m.setEnabled(false); // hide the procedural body
+      const wrap = new TransformNode("lmGlbWrap", scene);
+      wrap.parent = root;
+      wrap.position.copyFrom(LM_GLB_OFFSET);
+      wrap.rotationQuaternion = Quaternion.RotationAxis(new Vector3(0, 1, 0), LM_GLB_YAW);
+      wrap.scaling.setAll(LM_GLB_SCALE);
+      res.meshes[0].parent = wrap; // keep the imported root's own (handedness) transform intact
+      for (const m of res.meshes) {
+        m.isPickable = false; m.receiveShadows = true;
+        if (shadow && m.getTotalVertices() > 0) shadow.addShadowCaster(m as Mesh);
+      }
+    })
+    .catch(() => { /* no latemodel.glb present — keep the procedural body */ });
+
   return { root, vehicle, wheels, bodyParts: parts };
 }
