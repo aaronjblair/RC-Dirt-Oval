@@ -231,7 +231,7 @@ export function buildPickups(scene: Scene, shadow: ShadowGenerator | null, stand
   };
 
   // --- GROUP 1: behind the stand (outboard +x), backed in toward the stand (tailgate → −x). ---
-  const behindCount = 3 + ((Math.random() * 4) | 0); // 3..6
+  const behindCount = 6 + ((Math.random() * 4) | 0); // 6..9 — all pickups park behind the stand now
   for (let i = 0; i < behindCount; i++) {
     const x = standX + rand(14, 22);
     const z = rand(-7, 7) + (i - behindCount / 2) * rand(3.2, 4.5); // spread along z
@@ -245,18 +245,8 @@ export function buildPickups(scene: Scene, shadow: ShadowGenerator | null, stand
     placeTruck(x, z, Math.PI); // tailgate faces +z, away from the track
   }
 
-  // --- GROUP 2: east side, backed RIGHT up to the track edge (tailgate → −x, toward the track). ---
-  // Park just outside the wall; keep a gap around z≈0 so they don't overlap the stand frame.
-  const trackCount = 3 + ((Math.random() * 3) | 0); // 3..5
-  const slots: number[] = [];
-  for (let i = 0; i < trackCount; i++) slots.push(i);
-  for (const i of slots) {
-    // bias trucks to the z extents (away from z≈0 where the stand sits)
-    const sgn = i % 2 === 0 ? 1 : -1;
-    const z = sgn * rand(11, 26);
-    const x = standX - 3 + rand(-0.6, 0.6); // just outside the track edge / wall
-    placeTruck(x, z, Math.PI / 2); // tailgate faces −x (toward the track)
-  }
+  // (The old "east side, backed up to the track" group was removed — those trucks read as parked ON
+  //  the track. All pickups now park BEHIND the stand + building only.)
 
   return root;
 }
