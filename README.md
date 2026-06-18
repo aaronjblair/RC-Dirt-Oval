@@ -1,4 +1,4 @@
-# RCSprint
+﻿# RCSprint
 
 A browser 3D **1/10-scale dirt-oval RC sprint car racing game**, modeled on the real **Team Losi 22S Sprint** (TLR 22 platform). Built with **Babylon.js 7 + Havok (WASM) + Vite + TypeScript** — no engine install, no server. The production build is a static folder you can host anywhere.
 
@@ -55,19 +55,19 @@ npm run preview  # serve the production build locally
 `dist/` is the whole game. It must be **served over http(s)** — opening `index.html` from `file://` won't work (browsers block ES modules + WASM there). See **[DISTRIBUTION.md](DISTRIBUTION.md)** for itch.io / Netlify / local-server / same-Wi-Fi options.
 
 ## Play it / share a live link (GitHub Pages)
-**Live:** **https://aaronjblair.github.io/RCSprint/** — open it on a phone or desktop and share it with anyone.
+**Live:** **https://aaronjblair.github.io/RC-Dirt-Oval/** — open it on a phone or desktop and share it with anyone.
 
-A workflow at `.github/workflows/deploy.yml` builds and publishes the game on every push to `main` (Pages source is **GitHub Actions**, set under **Settings → Pages**). **Runtime references to `public/` assets must be `import.meta.env.BASE_URL`-relative, not a leading slash**, or they 404 under the `/RCSprint/` subpath. GitHub Pages is free on **public** repos; private-repo Pages needs a paid plan. The relative `base` in `vite.config.ts` also lets you drag `dist/` straight onto Netlify/itch.io to keep a repo private.
+A workflow at `.github/workflows/deploy.yml` builds and publishes the game on every push to `main` (Pages source is **GitHub Actions**, set under **Settings → Pages**). **Runtime references to `public/` assets must be `import.meta.env.BASE_URL`-relative, not a leading slash**, or they 404 under the `/RC-Dirt-Oval/` subpath. GitHub Pages is free on **public** repos; private-repo Pages needs a paid plan. The relative `base` in `vite.config.ts` also lets you drag `dist/` straight onto Netlify/itch.io to keep a repo private.
 
 ## Install / Download
 RCSprint ships two ways — pick whichever fits your device:
 
 - **Install the app (PWA) — iOS, Android, Windows, Mac.** Open the live URL and add it to your device:
-  **https://aaronjblair.github.io/RCSprint/**
+  **https://aaronjblair.github.io/RC-Dirt-Oval/**
   - **iOS (Safari):** Share → **Add to Home Screen**.
   - **Android / desktop Chrome or Edge:** the **Install app** button in the address bar (or the browser menu → *Install*).
   - It installs as a real app with its own icon and runs offline after the first load — the build embeds a web-app manifest and a service worker that precaches the whole game (including the Havok physics `.wasm`).
-- **Windows installer (.exe).** A native Windows build (Electron) is published as a **GitHub Release** asset — download the `RCSprint Setup *.exe` from the [Releases page](https://github.com/aaronjblair/RCSprint/releases) and run it.
+- **Windows installer (.exe).** A native Windows build (Electron) is published as a **GitHub Release** asset — download the `RC Dirt Oval Setup *.exe` from the [Releases page](https://github.com/aaronjblair/RC-Dirt-Oval/releases) and run it.
 
 There are intentionally **no native iOS / Mac / Android store builds** — install the PWA from the URL above instead (it covers all three). See **[DISTRIBUTION.md](DISTRIBUTION.md)** for the full how-and-why and other hosting options.
 

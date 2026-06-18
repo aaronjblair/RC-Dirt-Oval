@@ -1,4 +1,4 @@
----
+﻿---
 name: commit-it
 description: Verify, document, commit, and deploy all work on RCSprint. Use when the user says "commit it", "commit everything", or wants the project checkpointed to GitHub. Builds clean, reconciles docs + CLAUDE.md with reality, removes stray files, commits and pushes to origin/main, then verifies the public GitHub Pages deploy went live.
 ---
@@ -55,7 +55,7 @@ git push origin main
 Commit message: imperative, specific, one line of what changed (e.g. `Real Hoosier tires + mountain backdrop + doc sync`). Group the whole batch into one commit unless the user asked otherwise.
 
 ## 6. Deploy the game for public consumption (do not skip)
-The push to `main` auto-triggers the GitHub Pages deploy (`.github/workflows/deploy.yml`), publishing the game to **https://aaronjblair.github.io/RCSprint/**. A green push is NOT a green deploy — verify it actually went live:
+The push to `main` auto-triggers the GitHub Pages deploy (`.github/workflows/deploy.yml`), publishing the game to **https://aaronjblair.github.io/RC-Dirt-Oval/**. A green push is NOT a green deploy — verify it actually went live:
 ```powershell
 $env:Path = "C:\Program Files\Git\cmd;" + $env:Path
 $rid = gh run list --workflow=deploy.yml --branch main --limit 1 --json databaseId --jq ".[0].databaseId"
@@ -63,9 +63,9 @@ gh run watch $rid --exit-status --interval 8        # must end "success"
 ```
 Then confirm the LIVE site serves the new build (bypass CDN/browser cache with a random query):
 ```powershell
-(Invoke-WebRequest "https://aaronjblair.github.io/RCSprint/?cb=$(Get-Random)" -UseBasicParsing).StatusCode   # expect 200
+(Invoke-WebRequest "https://aaronjblair.github.io/RC-Dirt-Oval/?cb=$(Get-Random)" -UseBasicParsing).StatusCode   # expect 200
 ```
-If the run fails, surface the exact error. The trap that already bit once: **`public/` asset paths must be `import.meta.env.BASE_URL`-relative, not a leading slash**, or they 404 under the `/RCSprint/` subpath (build stays green, deploy serves a broken game). If Pages is disabled or the repo was made private again, free Pages won't deploy — say so rather than claiming success.
+If the run fails, surface the exact error. The trap that already bit once: **`public/` asset paths must be `import.meta.env.BASE_URL`-relative, not a leading slash**, or they 404 under the `/RC-Dirt-Oval/` subpath (build stays green, deploy serves a broken game). If Pages is disabled or the repo was made private again, free Pages won't deploy — say so rather than claiming success.
 
 ## 7. Report
 Tell the user: build status, what was added/updated/removed, which docs were synced, the commit hash + message, that it's pushed to `origin/main`, AND the deploy result with the live URL. If the push or deploy fails, surface the exact error — don't claim success.

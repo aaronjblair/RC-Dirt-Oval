@@ -88,6 +88,13 @@ export class RaycastVehicle {
   private rollTimer = 0; // seconds left in the active tumble
   private rollSpeed = 0; // tumble rate about the long axis (rad/s)
   private rollAngle = 0; // current roll about the long axis (rad)
+  // multi-axis tumble: a smaller pitch (X) + yaw (Y) wobble rides along with the primary Z roll
+  private pitchSpeed = 0; // tumble rate about the lateral axis (rad/s)
+  private pitchAngle = 0; // current extra pitch from the tumble (rad)
+  private yawWobSpeed = 0; // tumble rate about the up axis (rad/s)
+  private yawWobAngle = 0; // current extra yaw wobble from the tumble (rad)
+  private rollSettleTarget = Math.PI; // nearest stable inverted attitude we settle into (not forced exactly π)
+  private wasAirborne = false; // edge-detect ground contact during a tumble (for the bounce)
   private stuck = false; // came to rest upside down — immobile until a marshal rights it
   private spawnPos: Vector3;
   private spawnYaw: number;
@@ -160,7 +167,9 @@ export class RaycastVehicle {
     this.rolling = false;
     this.rollTimer = 0;
     this.vLong = 0; this.vLat = 0; this.vUp = 0;
-    // rollAngle eases back to upright via the settle path in update()
+    // kill the tumble rates so nothing keeps spinning; rollAngle + the pitch/yaw
+    // wobble ease back to upright via the settle path in update()
+    this.rollSpeed = 0; this.pitchSpeed = 0; this.yawWobSpeed = 0;
   }
 
   /**
@@ -198,7 +207,18 @@ export class RaycastVehicle {
     this.rolling = true;
     const flips = severity > 1.5 ? 2 : 1;
     this.rollTimer = 0.5 * flips;
-    this.rollSpeed = ((Math.PI * 2 * flips) / this.rollTimer) * (Math.random() < 0.5 ? 1 : -1);
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    // primary barrel roll about the long axis
+    this.rollSpeed = ((Math.PI * 2 * flips) / this.rollTimer) * dir;
+    this.rollAngle = 0;
+    // a smaller, randomized end-over-end pitch + yaw twist so the tumble reads chaotic, not robotic
+    this.pitchSpeed = this.rollSpeed * (0.18 + Math.random() * 0.22) * (Math.random() < 0.5 ? 1 : -1);
+    this.yawWobSpeed = this.rollSpeed * (0.12 + Math.random() * 0.18) * (Math.random() < 0.5 ? 1 : -1);
+    this.pitchAngle = 0;
+    this.yawWobAngle = 0;
+    // settle to the NATURAL nearest inverted attitude — π nudged a touch so cars don't all rest identically
+    this.rollSettleTarget = Math.PI + (Math.random() - 0.5) * 0.5;
+    this.wasAirborne = true;
     this.vUp = Math.min(6.5, 3 + severity * 1.4);
     this.airborne = true;
     this.vLong *= 0.45; this.vLat *= 0.45; // scrub speed in the impact
@@ -242,6 +262,10 @@ export class RaycastVehicle {
     this.rolling = false;
     this.rollTimer = 0;
     this.rollAngle = 0;
+    // wipe all tumble residue — angles + rates on every axis
+    this.rollSpeed = 0; this.pitchSpeed = 0; this.yawWobSpeed = 0;
+    this.pitchAngle = 0; this.yawWobAngle = 0;
+    this.wasAirborne = false;
     // a reset car is clean — drop any active buffs + immunity
     this.buffMul.grip = 1; this.buffMul.accel = 1; this.buffMul.top = 1;
     this.buffT.grip = 0; this.buffT.accel = 0; this.buffT.top = 0;
@@ -356,26 +380,55 @@ export class RaycastVehicle {
       if (this.pos.y < center.y + c.wheelRadius) {
         this.pos.y = center.y + c.wheelRadius;
         this.airborne = false;
-        this.vUp = 0;
+        // mid-tumble, the body bounces off the dirt and sheds angular speed on each hit
+        if (this.rollTimer > 0 && this.wasAirborne && this.vUp < -1) {
+          this.vUp = -this.vUp * 0.4; // small bounce back up (restitution)
+          this.rollSpeed *= 0.7; // shed roll momentum into the ground
+          this.pitchSpeed *= 0.65;
+          this.yawWobSpeed *= 0.65;
+          this.vLong *= 0.6; this.vLat *= 0.6; // scrub forward/lateral speed on impact
+        } else {
+          this.vUp = 0;
+        }
       }
     }
 
     // --- rollover tumble (set by triggerRollover on a hard hit) ---
     if (this.rollTimer > 0) {
       this.rollTimer -= dt;
+      // angular-momentum decay: the tumble winds down instead of spinning at a fixed rate
+      const decay = Math.max(0, 1 - dt * 1.2);
+      this.rollSpeed *= decay;
+      this.pitchSpeed *= decay;
+      this.yawWobSpeed *= decay;
       this.rollAngle += this.rollSpeed * dt;
+      this.pitchAngle += this.pitchSpeed * dt;
+      this.yawWobAngle += this.yawWobSpeed * dt;
       if (this.rollTimer <= 0) {
         this.rolling = false;
         this.stuck = true; // tumble done — comes to rest upside down, needs a marshal
-        this.rollAngle = Math.PI; // pinned inverted
+        this.rollSpeed = 0; this.pitchSpeed = 0; this.yawWobSpeed = 0;
       }
     } else if (this.stuck) {
-      this.rollAngle = Math.PI; // held upside down until recover() is called
-    } else if (Math.abs(this.rollAngle) > 0.001) {
-      this.rollAngle += (0 - this.rollAngle) * Math.min(1, dt * 5); // settle upright after a marshal rights it
+      // settle to the NATURAL nearest inverted attitude with a brief damped wobble (not forced exactly π)
+      this.rollAngle += (this.rollSettleTarget - this.rollAngle) * Math.min(1, dt * 6);
+      this.pitchAngle += (0 - this.pitchAngle) * Math.min(1, dt * 6);
+      this.yawWobAngle += (0 - this.yawWobAngle) * Math.min(1, dt * 6);
+    } else if (
+      Math.abs(this.rollAngle) > 0.001 ||
+      Math.abs(this.pitchAngle) > 0.001 ||
+      Math.abs(this.yawWobAngle) > 0.001
+    ) {
+      // settle upright after a marshal rights it — damp out any residual wobble on all axes
+      this.rollAngle += (0 - this.rollAngle) * Math.min(1, dt * 5);
+      this.pitchAngle += (0 - this.pitchAngle) * Math.min(1, dt * 5);
+      this.yawWobAngle += (0 - this.yawWobAngle) * Math.min(1, dt * 5);
     } else {
       this.rollAngle = 0;
+      this.pitchAngle = 0;
+      this.yawWobAngle = 0;
     }
+    this.wasAirborne = this.airborne;
 
     // --- visual squat / dive / wheelstand: pitch the body from longitudinal accel ---
     const launch = input.throttle * Math.max(0, 1 - speed / 6); // extra nose-up off the corner
@@ -383,9 +436,9 @@ export class RaycastVehicle {
     targetPitch = Math.max(-0.09, Math.min(0.05, targetPitch)); // ~5° up under power, ~3° dive on brakes
     this.pitch += (targetPitch - this.pitch) * Math.min(1, dt * 6);
 
-    // --- compose chassis orientation: yaw + pitch, then align up to ground normal ---
-    const yawQuat = Quaternion.RotationAxis(UP, this.yaw);
-    const pitchQuat = Quaternion.RotationAxis(new Vector3(1, 0, 0), this.pitch);
+    // --- compose chassis orientation: yaw + pitch + roll (incl. multi-axis tumble), align up to ground normal ---
+    const yawQuat = Quaternion.RotationAxis(UP, this.yaw + this.yawWobAngle);
+    const pitchQuat = Quaternion.RotationAxis(new Vector3(1, 0, 0), this.pitch + this.pitchAngle);
     const rollQuat = Quaternion.RotationAxis(new Vector3(0, 0, 1), this.rollAngle);
     const align = this.quatFromTo(UP, this.groundNormal);
     align.multiplyToRef(yawQuat.multiply(pitchQuat).multiply(rollQuat), this.chassis.rotationQuaternion!);

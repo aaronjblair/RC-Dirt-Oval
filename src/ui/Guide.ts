@@ -1,4 +1,4 @@
-/**
+﻿/**
  * RCSprint Driver's Manual — a self-contained, professionally styled documentation
  * overlay openable from the title/attract screen and the pre-race panel. It works on
  * desktop and touch, scrolls, and closes on ×, Esc, or a backdrop tap. While open it
@@ -62,7 +62,7 @@ const CONTENT =
   h("Controls — touch (phone &amp; tablet)",
     `On a touchscreen the on-screen controls appear automatically: a <b>steering pad</b> on the left, <b>GAS</b> and <b>BRAKE</b> ` +
     `on the right, and a <b>RESET</b> button. Add the page to your home screen for a full-screen, app-like ride. ` +
-    `Play it on your phone at <b style="color:${ACCENT}">aaronjblair.github.io/RCSprint</b>.`) +
+    `Play it on your phone at <b style="color:${ACCENT}">aaronjblair.github.io/RC-Dirt-Oval</b>.`) +
 
   h("The car — Losi 22S Sprint",
     `A 2WD winged sprint car on the proven TLR 22 chassis: brushless power on a 2S LiPo, a big raked <b>top wing</b> and ` +
@@ -104,7 +104,7 @@ const CONTENT =
   h("Under the hood",
     `Built with <b>Babylon.js 7</b> + <b>Havok</b> physics, TypeScript and Vite. The car is a custom raycast vehicle with a ` +
     `slip/friction-circle tire model — not a rigid body — for a tunable dirt feel. Everything is procedural or bundled; it runs ` +
-    `entirely in your browser with no server. Live at <b style="color:${ACCENT}">aaronjblair.github.io/RCSprint</b>.`);
+    `entirely in your browser with no server. Live at <b style="color:${ACCENT}">aaronjblair.github.io/RC-Dirt-Oval</b>.`);
 
 let openEl: HTMLDivElement | null = null;
 

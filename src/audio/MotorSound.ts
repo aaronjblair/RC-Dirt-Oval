@@ -1,12 +1,11 @@
 /**
- * MotorSound — a subtle, procedural ELECTRIC sprint-car motor for the player's car.
+ * MotorSound — a procedural HIGH-REVVING COMBUSTION sprint-car motor for the player's car.
  *
- * Real 1/10 brushless RC sprinters don't roar; they SCREAM. The note you hear is the ESC
- * pulse-width-modulating the motor — a high whine whose pitch tracks motor RPM — over a gear-mesh
- * whir, with a faint tire-on-dirt hiss. We emulate that entirely with the Web Audio API (no audio
- * file to ship): a sawtooth motor fundamental + a detuned higher "ESC whine" + a sub for body, run
- * through a low-pass that opens with throttle, plus a touch of band-passed noise that grows with
- * speed. Everything sits under a low master-gain cap so it stays subtle.
+ * A winged dirt sprinter screams — a raspy, high-RPM engine note that climbs with throttle/speed.
+ * We emulate that entirely with the Web Audio API (no audio file to ship): a sawtooth motor
+ * fundamental + a couple of upper harmonics for rasp + a sub for body, plus an exhaust-rasp noise
+ * component, all run through a low-pass that opens with throttle. Everything sits under a low
+ * master-gain cap so it stays present but not overpowering.
  *
  * Browser autoplay policy: the AudioContext starts suspended; call resume() from a user gesture.
  */
@@ -21,12 +20,14 @@ export class MotorSound {
   private master!: GainNode;
   private filter!: BiquadFilterNode;
 
-  private fund!: OscillatorNode;   // motor fundamental (gear/RPM)
-  private whine!: OscillatorNode;  // higher ESC/PWM scream
+  private fund!: OscillatorNode;   // motor fundamental (RPM)
+  private harm2!: OscillatorNode;  // 2nd harmonic — raspy body
+  private harm3!: OscillatorNode;  // higher harmonic — combustion bite/scream
   private sub!: OscillatorNode;    // an octave down for a little body
-  private noise!: AudioBufferSourceNode; // tire-on-dirt hiss
+  private noise!: AudioBufferSourceNode; // exhaust rasp
   private gFund!: GainNode;
-  private gWhine!: GainNode;
+  private gHarm2!: GainNode;
+  private gHarm3!: GainNode;
   private gSub!: GainNode;
   private gNoise!: GainNode;
 
@@ -36,6 +37,7 @@ export class MotorSound {
 
   private started = false;
   private _muted = false;
+  private _paused = false;
 
   constructor() {
     this._muted = (() => {
@@ -67,13 +69,13 @@ export class MotorSound {
     this.master.gain.value = this._muted ? 0 : 1;
     this.master.connect(ctx.destination);
 
-    // a low-pass that opens up with throttle (muffled at idle, bright on the gas).
+    // a low-pass that opens up with throttle (muffled off-throttle, bright/raspy on the gas).
     // Keep the floor high enough that the note is actually audible (a too-low cutoff once
     // silenced the whole engine — "re-open the filter").
     this.filter = ctx.createBiquadFilter();
     this.filter.type = "lowpass";
-    this.filter.frequency.value = 500;
-    this.filter.Q.value = 0.9;
+    this.filter.frequency.value = 800;
+    this.filter.Q.value = 1.1; // a touch of resonance for combustion bite
     this.filter.connect(this.master);
 
     const osc = (type: OscillatorType, peak: number, detune = 0): [OscillatorNode, GainNode] => {
@@ -86,11 +88,13 @@ export class MotorSound {
       void peak; // peak applied in update()
       return [o, g];
     };
-    [this.fund, this.gFund] = osc("sawtooth", 0.05, +4);
-    [this.whine, this.gWhine] = osc("square", 0.022, -7); // the electric scream
+    // slight per-engine detune so it never sounds digitally pure
+    [this.fund, this.gFund] = osc("sawtooth", 0.05, +6);
+    [this.harm2, this.gHarm2] = osc("sawtooth", 0.03, -5); // raspy 2nd harmonic
+    [this.harm3, this.gHarm3] = osc("square", 0.018, +9);  // combustion bite up top
     [this.sub, this.gSub] = osc("sawtooth", 0.03, 0);
 
-    // tire / dirt hiss: 2s of looped white noise through the same filter
+    // exhaust rasp: 2s of looped white noise, band-passed mid for a gritty combustion edge
     const len = Math.floor(ctx.sampleRate * 2);
     const buf = ctx.createBuffer(1, len, ctx.sampleRate);
     const data = buf.getChannelData(0);
@@ -99,7 +103,7 @@ export class MotorSound {
     this.noise.buffer = buf;
     this.noise.loop = true;
     const band = ctx.createBiquadFilter();
-    band.type = "bandpass"; band.frequency.value = 2600; band.Q.value = 0.7;
+    band.type = "bandpass"; band.frequency.value = 1800; band.Q.value = 0.6;
     this.gNoise = ctx.createGain();
     this.gNoise.gain.value = 0;
     this.noise.connect(band); band.connect(this.gNoise); this.gNoise.connect(this.master);
@@ -112,7 +116,7 @@ export class MotorSound {
     if (this.started) return;
     this.started = true;
     const t = this.ctx.currentTime;
-    this.fund.start(t); this.whine.start(t); this.sub.start(t); this.noise.start(t);
+    this.fund.start(t); this.harm2.start(t); this.harm3.start(t); this.sub.start(t); this.noise.start(t);
     for (const v of this.aiVoices) if (!v.started) { v.osc.start(t); v.started = true; }
   }
 
@@ -123,7 +127,8 @@ export class MotorSound {
     while (this.aiVoices.length < n) {
       const osc = ctx.createOscillator();
       osc.type = "sawtooth";
-      osc.frequency.value = 110;
+      osc.frequency.value = 180;
+      osc.detune.value = (this.aiVoices.length % 5 - 2) * 9; // slight per-car detune, no Math.random
       const gain = ctx.createGain();
       gain.gain.value = 0;
       const pan = ctx.createStereoPanner();
@@ -148,7 +153,8 @@ export class MotorSound {
       if (!s) { v.gain.gain.setTargetAtTime(0, t, 0.1); continue; }
       const spd01 = Math.min(1, Math.max(0, s.speed / 26));
       const rpm = Math.min(1, Math.max(spd01, Math.min(1, Math.max(0, s.throttle)) * 0.7));
-      v.osc.frequency.setTargetAtTime(90 + rpm * 360, t, 0.06);
+      // higher combustion-RPM range than the old electric whine
+      v.osc.frequency.setTargetAtTime(150 + rpm * 540, t, 0.06);
       // master cap is low; per-voice gain stays small so a 12-car field is a subtle pack, not a swarm
       const g = (0.012 + rpm * 0.02) * Math.min(1, Math.max(0, s.gain));
       v.gain.gain.setTargetAtTime(g, t, 0.08);
@@ -169,25 +175,45 @@ export class MotorSound {
     // motor RPM is mostly speed, nudged up by throttle so it responds before the car moves
     const rpm = Math.min(1, Math.max(spd01, load * 0.7));
 
-    const f = 90 + rpm * 360; // ~90 (idle) .. 450 Hz fundamental
-    const k = 0.06;           // smoothing time-constant — kills zipper noise
+    const f = 140 + rpm * 560; // ~140 (idle) .. 700 Hz fundamental — high-revving combustion
+    const k = 0.06;            // smoothing time-constant — kills zipper noise
     this.fund.frequency.setTargetAtTime(f, t, k);
-    this.whine.frequency.setTargetAtTime(f * 4.5, t, k); // the high electric scream
+    this.harm2.frequency.setTargetAtTime(f * 2, t, k);   // raspy 2nd harmonic
+    this.harm3.frequency.setTargetAtTime(f * 3, t, k);   // combustion bite up top
     this.sub.frequency.setTargetAtTime(f * 0.5, t, k);
-    this.filter.frequency.setTargetAtTime(500 + rpm * 4200, t, k);
+    // open the low-pass with throttle — keep the floor high so it never goes silent
+    this.filter.frequency.setTargetAtTime(900 + rpm * 5200, t, k);
 
     const eng = 0.25 + rpm * 0.75; // idle hum floor so it's never dead silent while racing
     const gk = 0.08;
     this.gFund.gain.setTargetAtTime(0.05 * eng, t, gk);
-    this.gWhine.gain.setTargetAtTime(0.022 * Math.max(load, spd01), t, gk); // whine mostly under load
+    this.gHarm2.gain.setTargetAtTime(0.03 * eng, t, gk);                    // rasp present at idle too
+    this.gHarm3.gain.setTargetAtTime(0.02 * Math.max(load, spd01), t, gk);  // bite mostly under load
     this.gSub.gain.setTargetAtTime(0.028 * eng, t, gk);
-    this.gNoise.gain.setTargetAtTime(0.012 * spd01, t, gk);
+    this.gNoise.gain.setTargetAtTime(0.016 * Math.max(load * 0.5, spd01), t, gk); // exhaust rasp
   }
 
   setMuted(m: boolean): void {
     this._muted = m;
     try { localStorage.setItem(MUTE_KEY, m ? "1" : "0"); } catch { /* ignore */ }
-    if (this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 1, this.ctx.currentTime, 0.02);
+    this.applyGain();
+  }
+
+  /**
+   * Pause the engine sound (e.g. when the game is paused) without touching the mute setting.
+   * Ramps the master gain to 0 while paused; restores the normal level on resume — unless the
+   * player has muted, in which case it stays silent. Separate from setMuted/_muted/localStorage.
+   */
+  setPaused(paused: boolean): void {
+    this._paused = paused;
+    this.applyGain();
+  }
+
+  /** Drive the master gain from the current muted + paused state. */
+  private applyGain(): void {
+    if (!this.ctx) return;
+    const target = (this._muted || this._paused) ? 0 : 1;
+    this.master.gain.setTargetAtTime(target, this.ctx.currentTime, 0.02);
   }
 
   toggleMuted(): boolean { this.setMuted(!this._muted); return this._muted; }

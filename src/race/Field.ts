@@ -26,7 +26,7 @@ const PALETTE: { c: Color3; n: number }[] = [
   { c: new Color3(0.1, 0.7, 0.35), n: 11 },
   { c: new Color3(0.55, 0.8, 0.12), n: 24 }, // lime/chartreuse (was burnt orange — keep only the player orange)
   { c: new Color3(0.6, 0.15, 0.8), n: 9 },
-  { c: new Color3(0.9, 0.9, 0.95), n: 4 },
+  { c: new Color3(0.93, 0.93, 0.96), n: 42 }, // the #42 — white livery, RED black-outlined numbers (set below)
   { c: new Color3(0.1, 0.8, 0.8), n: 15 },
   { c: new Color3(0.95, 0.5, 0.7), n: 17 },
   { c: new Color3(0.3, 0.3, 0.35), n: 2 },
@@ -74,6 +74,7 @@ export class Field {
         name: i === 0 ? "Super Jay" : undefined,
         logoUrl: i === 0 ? superJayLogo : undefined, // Super Jay's logo decal on the player car
         logoAspect: 686 / 1190,
+        redOutlineNumber: p.n === 42, // the #42 always runs RED black-outlined numbers (side + wing-top)
         config: classDef.config, // per-class physics baseline (the builder clones it per car)
       });
       this.cars.push(car);

@@ -1,4 +1,4 @@
-# RCSprint — build-from-scratch prompt
+﻿# RCSprint — build-from-scratch prompt
 
 Paste this whole file to an AI coding agent to rebuild the game. It is the single source
 of truth: current, deduplicated, and trimmed to what actually matters. Work in a **loop** —
@@ -285,7 +285,7 @@ Degrade to a silent no-op if `AudioContext` is unavailable.
   `browser_evaluate` and confirm ≈5.7u with feet at y≈0.
 
 ## Distribution (cross-platform)
-- **Live URL:** `https://aaronjblair.github.io/RCSprint/` (GitHub Pages, auto-deploys on push to `main`).
+- **Live URL:** `https://aaronjblair.github.io/RC-Dirt-Oval/` (GitHub Pages, auto-deploys on push to `main`).
 - **Installable PWA** (`vite-plugin-pwa`): the build emits a **web-app manifest** and a **service
   worker** that **precaches the whole game including the Havok `.wasm`**, so it installs as a real app
   with its own icon and runs offline on **iOS / Android / Windows / Mac** (iOS Safari: *Share → Add to
@@ -310,5 +310,5 @@ npm run build:win # Windows .exe (Electron) via scripts/build-win.mjs -> release
 ```
 Deploys to GitHub Pages on push to `main`. **Runtime `public/` asset paths must be
 `import.meta.env.BASE_URL`-relative, never a leading slash**, or they 404 under the
-`/RCSprint/` subpath (build stays green; live game breaks). Bundle images via `import` from
+`/RC-Dirt-Oval/` subpath (build stays green; live game breaks). Bundle images via `import` from
 `src/assets/` to dodge that entirely.

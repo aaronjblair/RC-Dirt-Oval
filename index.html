@@ -32,6 +32,26 @@
         padding: 4px 8px; border-radius: 6px; border: 0;
       }
       #mute:hover { color: #fff; background: rgba(0,0,0,0.5); }
+      #pause {
+        position: absolute; top: 56px; right: 12px;
+        pointer-events: auto; cursor: pointer; user-select: none;
+        font-size: 14px; line-height: 1; color: #cfe0f0; background: rgba(0,0,0,0.35);
+        padding: 4px 8px; border-radius: 6px; border: 0;
+      }
+      #pause:hover { color: #fff; background: rgba(0,0,0,0.5); }
+      /* Small physical-key glyphs next to the desktop controls (hidden on touch). */
+      .keycap {
+        display: inline-block; margin-left: 5px; padding: 0 5px; min-width: 12px;
+        font-size: 10px; font-weight: 700; line-height: 16px; text-align: center;
+        color: #1a1d24; background: linear-gradient(#fdfdfd, #d4d8df);
+        border-radius: 4px; box-shadow: 0 1px 0 #888, inset 0 1px 0 #fff; vertical-align: middle;
+      }
+      body.touch-active .keycap { display: none; }
+      #pauseOverlay {
+        position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+        pointer-events: auto; cursor: pointer; background: rgba(6,8,12,0.55);
+        font-weight: 800; font-size: 26px; color: #ffd34d; letter-spacing: 1px; text-align: center;
+      }
       /* Upper-left camera view toggle (cycles In-Car / Track / Aerial). Sits in the corner; the
          title is shifted right to share the row. */
       #view {
@@ -70,6 +90,8 @@
       /* Opening logo: the SUPER JAY #32 racing badge. */
       #loadLogo { width: min(380px, 76vw); height: auto; filter: drop-shadow(0 6px 18px rgba(0,0,0,0.6)); }
       #loadTitle { font-weight: 900; letter-spacing: 3px; font-size: 30px; }
+      /* Credit line under the badge, smaller + muted. */
+      #loadCredit { font-size: 13px; letter-spacing: 1px; color: #c8d0da; opacity: 0.9; margin-top: -6px; }
       #loadLabel { font-size: 13px; letter-spacing: 1px; color: #c8d0da; }
       #loadBar { width: min(320px, 64vw); height: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; overflow: hidden; }
       #loadFill { height: 100%; width: 0%; background: #ffd34d; border-radius: 6px; transition: width .3s ease; }
@@ -97,6 +119,7 @@
       <div id="title">RC Dirt Oval <small>1/10 Dirt Oval &middot; Losi 22S Sprint</small></div>
       <div id="fps">-- fps</div>
       <button id="mute" type="button" title="Mute engine sound (M)">🔊</button>
+      <button id="pause" type="button" title="Pause (P)">⏸</button>
       <div id="racehud">
         <div><div class="lbl">Lap</div><div class="val" id="hudLap">1<small>/15</small></div></div>
         <div><div class="lbl">Pos</div><div class="val" id="hudPos">1<small>/8</small></div></div>
@@ -108,9 +131,11 @@
         <div class="lbl">Score</div><div class="big" id="arcScore">0</div>
         <div class="lbl">Continues</div><div class="big" id="arcCont">3</div>
       </div>
+      <div id="pauseOverlay">⏸ PAUSED<br><span style="font-size:14px;color:#cfe0f0">press P or tap to resume</span></div>
     </div>
     <div id="loading">
       <img id="loadLogo" src="./superjay-32.png" alt="Super Jay 32" />
+      <div id="loadCredit">Created by Aaron Blair</div>
       <div id="loadTitle">RC DIRT OVAL</div>
       <div id="loadBar"><div id="loadFill"></div></div>
       <div id="loadLabel">Loading&hellip;</div>

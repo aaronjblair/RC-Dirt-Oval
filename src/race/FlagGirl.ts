@@ -43,7 +43,7 @@ export class FlagGirl {
   private baseArm = -0.42; // resting raised-arm angle (rad): pole near-vertical, leaned slightly forward
 
   constructor(scene: Scene, track: OvalTrack, shadow: ShadowGenerator | null) {
-    const sm = track.sampleAt(0); // start/finish line
+    const sm = track.sampleAt(track.startFinishS); // start/finish line (~3/4 down the front straight)
     const W = track.def.width;
     const stand = sm.pos.add(sm.outward.scale(W / 2 + 2.6)); // just outside the wall
 

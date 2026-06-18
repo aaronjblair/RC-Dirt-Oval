@@ -47,7 +47,7 @@ export class DriverStandCamera {
     this.camera.position.copyFrom(this.home);
   }
 
-  update(carPos: Vector3, dt: number) {
+  update(carPos: Vector3, dt: number, zoom = 1.0) {
     // Aim straight at the car so the view pans all the way into the corners.
     Vector3.LerpToRef(this.target, carPos, Math.min(1, dt * 6), this.target);
 
@@ -61,7 +61,8 @@ export class DriverStandCamera {
     // Telephoto in as the car runs away so it never shrinks out of view; widen
     // when it's close so you still get the surrounding track and infield logo.
     const dist = Vector3.Distance(this.camera.position, carPos);
-    const targetFov = Math.max(0.42, Math.min(0.9, this.span / dist));
+    // Divide by zoom so a zoom > 1 narrows the FOV (telephotos in); zoom = 1 is unchanged.
+    const targetFov = Math.max(0.42, Math.min(0.9, this.span / dist)) / zoom;
     this.camera.fov += (targetFov - this.camera.fov) * Math.min(1, dt * 3);
   }
 }

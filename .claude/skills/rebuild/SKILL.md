@@ -1,4 +1,4 @@
-# rebuild — ship everything: docs → build all executables → publish → return links
+﻿# rebuild — ship everything: docs → build all executables → publish → return links
 
 A one-shot "release the game" ritual. Do **every** step in order. This is the heavier sibling of
 **commit-it**: it also produces the cross-platform artifacts (installable **PWA** + a **Windows .exe**)
@@ -55,12 +55,12 @@ This step is gated: **ask the user before committing/pushing and before creating
   $env:Path = "C:\Program Files\Git\cmd;" + $env:Path
   $rid = gh run list --workflow=deploy.yml --branch main --limit 1 --json databaseId --jq ".[0].databaseId"
   gh run watch $rid --exit-status --interval 8
-  (Invoke-WebRequest "https://aaronjblair.github.io/RCSprint/?cb=$(Get-Random)" -UseBasicParsing).StatusCode  # expect 200
+  (Invoke-WebRequest "https://aaronjblair.github.io/RC-Dirt-Oval/?cb=$(Get-Random)" -UseBasicParsing).StatusCode  # expect 200
   ```
 - Attach the Windows installer to a GitHub **Release** (binary lives as a Release asset, NOT committed
   into the tree):
   ```powershell
-  gh release create v<x.y.z> "release/<RCSprint Setup x.y.z>.exe" -R aaronjblair/RCSprint `
+  gh release create v<x.y.z> "release/<RC Dirt Oval Setup x.y.z>.exe" -R aaronjblair/RC-Dirt-Oval `
     --title "RCSprint v<x.y.z>" --notes "Installable PWA + Windows installer."
   ```
   (Repo target follows whatever repo is currently public — update if the RC-Dirt-Oval rename has
@@ -68,7 +68,7 @@ This step is gated: **ask the user before committing/pushing and before creating
 
 ## 5. Return the links (the skill's output)
 Print a tidy block the user can copy:
-- **Play / Install (PWA — iOS, Android, Windows, Mac):** `https://aaronjblair.github.io/RCSprint/`
+- **Play / Install (PWA — iOS, Android, Windows, Mac):** `https://aaronjblair.github.io/RC-Dirt-Oval/`
   (iOS: Share → *Add to Home Screen*; Android & desktop Chrome/Edge: *Install app*).
 - **Windows installer (.exe):** the GitHub Release asset URL from step 4.
 - **Mac / iOS / Android:** install the PWA from the URL above (no native store build).

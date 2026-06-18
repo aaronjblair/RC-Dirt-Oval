@@ -2,7 +2,7 @@
 export const POINTS = [25, 20, 16, 13, 11, 9, 7, 5, 4, 3, 2, 1];
 
 /** Car numbers per grid slot; slot 0 is the player — Super Jay's #32. Matches Field palette. */
-export const DRIVER_NUMBERS = [32, 7, 1, 11, 24, 9, 4, 15, 17, 2, 5, 21];
+export const DRIVER_NUMBERS = [32, 7, 1, 11, 24, 9, 42, 15, 17, 2, 5, 21];
 
 /** Full names for the AI field. Assigned deterministically per grid slot (slot 1 = AI_NAMES[0], …)
  *  so a given AI "driver" keeps the same name across the season — the championship standings (keyed

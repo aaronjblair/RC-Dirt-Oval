@@ -1,10 +1,11 @@
 import { Scene } from "@babylonjs/core/scene";
-import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import { Vector3, Vector2 } from "@babylonjs/core/Maths/math.vector";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData";
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { PhysicsBody } from "@babylonjs/core/Physics/v2/physicsBody";
@@ -43,8 +44,19 @@ const SAMPLES = 480;
 export class OvalTrack {
   readonly def: TrackDef;
   readonly length: number;
+  /** Arc-length of the painted start/finish line — ~70% down the front straight toward turn 1.
+   *  project()'s s-origin is unchanged (the geometry origin); timing relativizes against this. */
+  readonly startFinishS: number;
   readonly surface: Mesh;
   private samples: TrackSample[] = [];
+
+  // --- racing-groove darkening overlay (visual only) ---
+  private grooveTex: DynamicTexture | null = null;
+  private grooveWear: Float32Array | null = null;
+  private grooveFrame = 0;
+  private static readonly GROOVE_BINS = 240;  // along the centerline
+  private static readonly GROOVE_LANES = 12;   // across the width
+  private static readonly GROOVE_MAX = 0.4;    // max darken (40%)
 
   constructor(
     private scene: Scene,
@@ -56,6 +68,7 @@ export class OvalTrack {
     const R = def.cornerRadius;
     const L = def.straightLength;
     this.length = 2 * L + 2 * Math.PI * R;
+    this.startFinishS = 0.7 * (this.length / 2); // ~70% along the front straight (s grows toward turn 1)
 
     void plugin;
     this.buildSamples();
@@ -65,6 +78,7 @@ export class OvalTrack {
     this.buildWalls(shadow);
     this.buildStartFinish();
     this.buildGroove();
+    this.buildGrooveOverlay();
     this.buildBanners();
   }
 
@@ -147,6 +161,104 @@ export class OvalTrack {
     band("slick", W * 0.1, W * 0.1, brown, ROUGH);
     band("cushion", W * 0.31, W * 0.11, brown, ROUGH);
     band("marbles", W * 0.46, W * 0.04, brown, ROUGH);
+  }
+
+  /**
+   * Transparent darkening overlay that paints in the racing groove as cars run laps.
+   * The global SurfaceModel grip is invisible, so this ribbon (matching the surface
+   * shape, lifted slightly above it) carries a per-cell ALPHA wear map: black pigment
+   * whose alpha rises where tires repeatedly run, clamped to GROOVE_MAX (40% darken).
+   */
+  private buildGrooveOverlay() {
+    const W = this.def.width;
+    const BINS = OvalTrack.GROOVE_BINS;
+    const LANES = OvalTrack.GROOVE_LANES;
+
+    const inner: Vector3[] = [];
+    const outer: Vector3[] = [];
+    const uvs: Vector2[] = [];
+    for (let i = 0; i <= SAMPLES; i++) {
+      const sm = this.samples[i % SAMPLES];
+      const lift = W * Math.tan(sm.bank);
+      const yAt = (lat: number) => lift * (0.5 + lat / W) + 0.05; // just above the painted bands (~0.02)
+      const a = sm.pos.add(sm.outward.scale(-W / 2)); a.y = yAt(-W / 2);
+      const b = sm.pos.add(sm.outward.scale(W / 2)); b.y = yAt(W / 2);
+      inner.push(a); outer.push(b);
+      const v = i / SAMPLES;
+      uvs.push(new Vector2(0, v), new Vector2(1, v)); // U across width (0 inner .. 1 outer), V along length
+    }
+    const ribbon = MeshBuilder.CreateRibbon("grooveOverlay", { pathArray: [inner, outer], closePath: true, uvs }, this.scene);
+
+    const tex = new DynamicTexture("grooveTex", { width: LANES, height: BINS }, this.scene, false);
+    tex.hasAlpha = true;
+    const mat = new StandardMaterial("grooveOverlayMat", this.scene);
+    mat.diffuseColor = new Color3(0, 0, 0);
+    mat.specularColor = new Color3(0, 0, 0);
+    mat.opacityTexture = tex; // per-cell alpha only
+    mat.disableLighting = true;
+    mat.backFaceCulling = false;
+    mat.zOffset = -6; // sit cleanly above the surface + painted bands
+    ribbon.material = mat;
+    ribbon.isPickable = false;
+    ribbon.alphaIndex = 5;
+
+    this.grooveTex = tex;
+    this.grooveWear = new Float32Array(BINS * LANES);
+    this.paintGroove();
+  }
+
+  /** Repaint the whole groove texture from the wear map (alpha = wear * GROOVE_MAX). */
+  private paintGroove() {
+    if (!this.grooveTex || !this.grooveWear) return;
+    const BINS = OvalTrack.GROOVE_BINS;
+    const LANES = OvalTrack.GROOVE_LANES;
+    const ctx = this.grooveTex.getContext() as CanvasRenderingContext2D;
+    const img = ctx.createImageData(LANES, BINS);
+    const data = img.data;
+    for (let b = 0; b < BINS; b++) {
+      for (let l = 0; l < LANES; l++) {
+        const w = this.grooveWear[b * LANES + l];
+        const a = Math.min(1, Math.max(0, w)) * OvalTrack.GROOVE_MAX;
+        const o = (b * LANES + l) * 4;
+        data[o] = 0; data[o + 1] = 0; data[o + 2] = 0;
+        data[o + 3] = Math.round(a * 255);
+      }
+    }
+    ctx.putImageData(img, 0, 0);
+    this.grooveTex.update();
+  }
+
+  /** Clear all accumulated groove wear and repaint clean. Call on race start. */
+  resetGroove() {
+    if (this.grooveWear) this.grooveWear.fill(0);
+    this.grooveFrame = 0;
+    this.paintGroove();
+  }
+
+  /**
+   * Accumulate groove wear from each car's track position this racing frame, then
+   * (throttled) repaint the overlay so the worn racing line darkens over the race.
+   */
+  updateGroove(cars: { root: { position: Vector3 } }[], dt: number) {
+    if (!this.grooveWear || !this.grooveTex) return;
+    const BINS = OvalTrack.GROOVE_BINS;
+    const LANES = OvalTrack.GROOVE_LANES;
+    const W = this.def.width;
+    const k = 0.6; // wear rate per second a car sits in a cell
+    for (const car of cars) {
+      const proj = this.project(car.root.position);
+      // length -> bin
+      let bin = Math.floor((proj.s / this.length) * BINS) % BINS;
+      if (bin < 0) bin += BINS;
+      // lateral (-W/2 .. +W/2) -> lane
+      const frac = (proj.lateral + W / 2) / W;
+      let lane = Math.floor(frac * LANES);
+      if (lane < 0) lane = 0; else if (lane >= LANES) lane = LANES - 1;
+      const idx = bin * LANES + lane;
+      this.grooveWear[idx] = Math.min(1, this.grooveWear[idx] + k * dt);
+    }
+    // Throttle the GPU upload — every few frames is plenty for a slow-evolving groove.
+    if ((this.grooveFrame++ % 6) === 0) this.paintGroove();
   }
 
   // --- centerline walk ---
@@ -351,9 +463,9 @@ export class OvalTrack {
 
   private buildStartFinish() {
     const W = this.def.width;
-    // start/finish line painted across the front straight at s=0 ((R,0))
+    // start/finish line painted ~3/4 down the front straight (at startFinishS)
     const line = MeshBuilder.CreateBox("sfLine", { width: W, height: 0.02, depth: 1.2 }, this.scene);
-    const sm = this.samples[0];
+    const sm = this.sampleAt(this.startFinishS);
     line.position = sm.pos.clone();
     line.position.y = 0.03;
     line.rotation.y = Math.atan2(sm.tangent.x, sm.tangent.z);
@@ -392,11 +504,11 @@ export class OvalTrack {
     return this.samples[i];
   }
 
-  /** Grid start position for car index (staggered double-file behind s=0). */
+  /** Grid start position for car index (staggered double-file behind the start/finish line). */
   gridPose(index: number): { pos: Vector3; yaw: number } {
     const row = Math.floor(index / 2);
     const col = index % 2;
-    const s = (this.length - 6 - row * 4) % this.length;
+    const s = (this.startFinishS - 6 - row * 4 + this.length) % this.length;
     const sm = this.sampleAt(s);
     const lateralOff = col === 0 ? -this.def.width * 0.22 : this.def.width * 0.22;
     const pos = sm.pos.add(sm.outward.scale(lateralOff));

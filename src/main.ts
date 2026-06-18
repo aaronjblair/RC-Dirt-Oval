@@ -24,6 +24,7 @@ import { Field } from "./race/Field";
 import { Marshals } from "./race/Marshals";
 import { FlagGirl } from "./race/FlagGirl";
 import { buildLawnMower } from "./race/LawnMower";
+import { buildPickups } from "./race/Pickups";
 import { loadSetup, saveSetup } from "./car/CarSetup";
 import { SetupPanel } from "./ui/SetupPanel";
 import { Screens } from "./ui/Screens";
@@ -178,6 +179,8 @@ async function boot() {
   const flagGirl = new FlagGirl(scene, track, shadow);
   // Easter egg: a guy on a red riding mower parked on the infield, just below the logo.
   buildLawnMower(scene, shadow, new Vector3(7, -0.02, -2), 0.7);
+  // Tailgate-party pickup trucks: backed in behind the grandstand/building and along the east straight.
+  buildPickups(scene, shadow, scenery.standPosition);
 
   // Arcade (RC Pro-Am) mode: lay pickups / boost strips / collectible letters / oil slicks on the
   // oval. Only built in arcade mode; career/sim races never see them. Updated each frame while racing.
@@ -196,7 +199,8 @@ async function boot() {
   motor.setVoiceCount(field.cars.length - 1); // a light, panned whine for every AI car
   (window as any).__audio = motor;
   const muteBtn = document.getElementById("mute") as HTMLButtonElement | null;
-  const reflectMute = () => { if (muteBtn) muteBtn.textContent = motor.muted ? "🔇" : "🔊"; };
+  const keycap = (k: string) => (coarsePointer ? "" : `<span class="keycap">${k}</span>`);
+  const reflectMute = () => { if (muteBtn) muteBtn.innerHTML = (motor.muted ? "🔇" : "🔊") + keycap("M"); };
   reflectMute();
   const toggleMute = () => { motor.toggleMuted(); reflectMute(); };
   muteBtn?.addEventListener("click", toggleMute);
@@ -233,7 +237,7 @@ async function boot() {
   };
   let view: View = initialView();
   const viewBtn = document.getElementById("view") as HTMLButtonElement | null;
-  const reflectView = () => { if (viewBtn) viewBtn.textContent = VIEW_LABEL[view]; };
+  const reflectView = () => { if (viewBtn) viewBtn.innerHTML = VIEW_LABEL[view] + keycap("V"); };
   const setView = (v: View) => { view = v; reflectView(); };
   reflectView();
   const cycleView = () => setView(view === "normal" ? "incar" : view === "incar" ? "aerial" : view === "aerial" ? "topdown" : "normal");
@@ -267,6 +271,41 @@ async function boot() {
   // (both modes). `goTime` is set when the light tree fires GO; `launchChecked` closes the window.
   let goTime = 0;
   let launchChecked = true;
+
+  // --- Manual camera zoom (all views) + Pause (P / ⏸) ---
+  let zoom = 1.0; // 1 = default, >1 = zoomed in; applied to whichever camera is live each frame
+  const clampZoom = (z: number) => Math.max(0.5, Math.min(3.0, z));
+  const ZOOM_STEP = 0.12;
+  window.addEventListener("wheel", (e) => {
+    if (state === "attract") return; // the attract reel drives its own cinematic cam
+    e.preventDefault();
+    zoom = clampZoom(zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+  }, { passive: false });
+  window.addEventListener("keydown", (e) => {
+    if (typingInField(e) || state === "attract") return;
+    if (e.code === "Equal" || e.code === "NumpadAdd") zoom = clampZoom(zoom + ZOOM_STEP);
+    else if (e.code === "Minus" || e.code === "NumpadSubtract") zoom = clampZoom(zoom - ZOOM_STEP);
+  });
+  input.onZoom = (d) => { zoom = clampZoom(zoom + d); }; // on-screen +/- buttons (touch)
+
+  // Pause: freezes the sim + race clock + engine sound; the scene keeps drawing. P key + ⏸ HUD button.
+  let paused = false;
+  let pausedAccum = 0; // ms spent paused, subtracted from the race clock so lap timing stays honest
+  let pauseStart = 0;
+  const pauseBtn = document.getElementById("pause") as HTMLButtonElement | null;
+  const pauseOverlay = document.getElementById("pauseOverlay");
+  const togglePause = () => {
+    if (state !== "racing") return;
+    paused = !paused;
+    if (paused) pauseStart = performance.now();
+    else pausedAccum += performance.now() - pauseStart;
+    motor.setPaused(paused);
+    if (pauseBtn) pauseBtn.textContent = paused ? "▶" : "⏸";
+    if (pauseOverlay) pauseOverlay.style.display = paused ? "flex" : "none";
+  };
+  pauseBtn?.addEventListener("click", togglePause);
+  pauseOverlay?.addEventListener("click", togglePause);
+  window.addEventListener("keydown", (e) => { if (!typingInField(e) && e.code === "KeyP") togglePause(); });
 
   const finalize = () => {
     if (awarded) return;
@@ -333,6 +372,7 @@ async function boot() {
       player.name = name;
       Screens.arcadeLightTree(() => {
         race.start(performance.now()); state = "racing"; flagGirl.greenFlag();
+        track.resetGroove(); pausedAccum = 0; paused = false;
         goTime = performance.now(); launchChecked = false; // open the perfect-launch window
       });
     });
@@ -344,7 +384,7 @@ async function boot() {
     loadingEl.style.opacity = "0";
     setTimeout(() => { loadingEl.style.display = "none"; }, 360);
     if (state === "racing") {
-      race.start(performance.now()); flagGirl.greenFlag(); // ?demo — straight into a live race
+      race.start(performance.now()); flagGirl.greenFlag(); track.resetGroove(); // ?demo — straight into a live race
     } else if (state === "attract") {
       // Hide the racing HUD; the reel should read as a video, not gameplay.
       hud.style.display = "none";
@@ -378,7 +418,7 @@ async function boot() {
   let acc = 0;
   scene.onBeforeRenderObservable.add(() => {
     const frameDt = Math.min(0.1, engine.getDeltaTime() / 1000);
-    if (state === "racing") {
+    if (state === "racing" && !paused) {
       const drive = input.sample();
       const raceFraction = Math.min(1, player.progress / raceDist);
       // fixed-timestep accumulator: keeps the sim at real-world speed even when
@@ -390,7 +430,8 @@ async function boot() {
         physAcc -= FIXED;
         steps++;
       }
-      race.update(performance.now());
+      race.update(performance.now() - pausedAccum);
+      track.updateGroove(field.cars, frameDt); // darken the driven-in racing groove (visual only, ≤40%)
       // Perfect-launch boost (both modes): a brief jump if the player hits the gas within ~350ms of GO.
       if (!launchChecked) {
         if (drive.throttle > 0.5) {
@@ -417,7 +458,7 @@ async function boot() {
         }
         motor.updateVoices(vs);
       }
-      if (player.finished) finalize();
+      if (race.state.finished) finalize(); // race ends one lap after the winner crosses
     } else if (state === "attract") {
       // Run the AI field on a rubbered-in mid-race surface, drive the cinematic cam.
       physAcc += frameDt;
@@ -429,11 +470,13 @@ async function boot() {
       const focus = new Vector3(fx / cars.length, fy / cars.length, fz / cars.length);
       cine.update(frameDt, focus, field.playerVehicle.position, field.playerVehicle.heading);
     }
-    if (state === "racing" || state === "attract") marshals.update(frameDt, field.cars);
+    if ((state === "racing" && !paused) || state === "attract") marshals.update(frameDt, field.cars);
     flagGirl.update(frameDt);
-    cam.update(field.playerVehicle.position, frameDt);
-    if (view === "incar") cockpit.update(frameDt, field.playerVehicle);
+    cam.update(field.playerVehicle.position, frameDt, zoom);
+    if (view === "incar") cockpit.update(frameDt, field.playerVehicle, zoom);
     if (view === "topdown") rcProAm.update(field.playerVehicle.position);
+    aerialCam.fov = 0.8 / zoom;      // manual zoom for the aerial view
+    rcProAm.camera.fov = 0.8 / zoom; // ...and the RC Pro-Am overhead view
     // Ride a flip externally (the driver-stand cam), not a spinning cockpit.
     const incarBlocked = field.playerVehicle.isStuck || field.playerVehicle.isRolling;
     const live = (view === "incar" && !incarBlocked) ? cockpit.camera
@@ -468,7 +511,7 @@ async function boot() {
     acc += engine.getDeltaTime();
     if (acc > 90) {
       acc = 0;
-      const now = performance.now();
+      const now = performance.now() - pausedAccum;
       fpsEl.textContent = `${engine.getFps().toFixed(0)} fps`;
       el("hudSpeed").textContent = `${Math.round(field.playerVehicle.speed * SCALE_MPH)}`;
       el("hudLap").innerHTML = `${Math.max(1, player.lap)}<small>/${def.laps}</small>`;

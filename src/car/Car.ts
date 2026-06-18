@@ -22,6 +22,7 @@ export interface CarOptions {
   name?: string; // driver/livery name lettered on the wing deck + body sides
   logoUrl?: string; // image decal placed on the wing deck + body sides (overrides the lettered name)
   logoAspect?: number; // logo width / height (for sizing the decal plane)
+  redOutlineNumber?: boolean; // special AI livery: render side + wing-top numbers as RED glyphs with a BLACK outline (overrides the luminance-contrast wing-top number). Set on the #42 car.
   config?: VehicleConfig; // class physics baseline (cloned per car); defaults to the sprint config
 }
 
@@ -33,6 +34,9 @@ export interface BuiltCar {
 }
 
 export const rgb = (c: Color3) => `rgb(${(c.r * 255) | 0},${(c.g * 255) | 0},${(c.b * 255) | 0})`;
+
+/** Perceived (Rec. 709) relative luminance of a body colour, 0 (black) … 1 (white). */
+export const luminance = (c: Color3) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
 
 /** Fine metalflake normal map (procedural): a tileable field of randomized micro-facet
  *  normals so the clear-coated paint sparkles like real metal-flake RC bodywork. */
@@ -145,15 +149,48 @@ function superJayTagDraw(): Draw {
   };
 }
 
-/** Wing side plate (dive plate): black with a color band, "SPRINT" + big number. */
-function wingSideDraw(color: Color3, num: number): Draw {
+/** Wing side plate (dive plate): black with a color band, "SPRINT" + big number.
+ *  `redOutline`: draw the big number as RED glyphs with a BLACK outline (the #42 livery). */
+function wingSideDraw(color: Color3, num: number, redOutline = false): Draw {
   return (ctx, w, h) => {
     ctx.fillStyle = "#0b0b0d"; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = rgb(color); ctx.fillRect(0, 0, w, h * 0.16);
     ctx.fillStyle = "#fff"; ctx.font = `bold ${h * 0.20}px "Arial Black", Arial, sans-serif`;
     ctx.textAlign = "left"; ctx.textBaseline = "top"; ctx.fillText("SPRINT", w * 0.06, h * 0.20);
     ctx.font = `bold ${h * 0.62}px "Arial Black", Arial, sans-serif`;
-    ctx.textAlign = "right"; ctx.textBaseline = "middle"; ctx.fillText(String(num), w * 0.96, h * 0.62);
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    if (redOutline) {
+      ctx.lineWidth = h * 0.05; ctx.strokeStyle = "#0b0b0d"; ctx.lineJoin = "round";
+      ctx.strokeText(String(num), w * 0.96, h * 0.62);
+      ctx.fillStyle = "#d21414"; ctx.fillText(String(num), w * 0.96, h * 0.62);
+    } else {
+      ctx.fillText(String(num), w * 0.96, h * 0.62);
+    }
+  };
+}
+
+/** Wing-TOP number, drawn on a TRANSPARENT canvas (the wing paint shows through) so it
+ *  reads as a painted-on number from the driver-stand POV. The glyph fills ~75% of the
+ *  deck height. Colour: a luminance-contrasting black/white against the body colour, or
+ *  — when `redOutline` is set — RED glyphs with a BLACK outline (overrides the contrast). */
+function wingTopNumberDraw(color: Color3, num: number, redOutline = false): Draw {
+  return (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h); // transparent — wing paint reads through
+    ctx.font = `bold ${h * 0.75}px "Arial Black", Arial, sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    if (redOutline) {
+      ctx.lineWidth = h * 0.06; ctx.strokeStyle = "#0b0b0d"; ctx.lineJoin = "round";
+      ctx.strokeText(String(num), w * 0.5, h * 0.52);
+      ctx.fillStyle = "#d21414"; ctx.fillText(String(num), w * 0.5, h * 0.52);
+    } else {
+      // dark glyph on light bodies, light glyph on dark bodies, with a faint contrasting outline
+      const dark = luminance(color) > 0.5;
+      ctx.lineWidth = h * 0.04; ctx.lineJoin = "round";
+      ctx.strokeStyle = dark ? "#f4f4f6" : "#0b0b0d";
+      ctx.strokeText(String(num), w * 0.5, h * 0.52);
+      ctx.fillStyle = dark ? "#0b0b0d" : "#f4f4f6";
+      ctx.fillText(String(num), w * 0.5, h * 0.52);
+    }
   };
 }
 
@@ -289,6 +326,7 @@ export function createCar(
   const num = opts.number ?? 22;
   const logoUrl = opts.logoUrl;
   const logoAspect = opts.logoAspect ?? 0.72; // width / height (portrait sticker)
+  const redNum = !!opts.redOutlineNumber; // #42 livery: red glyph + black outline numbers
   // The lettered name is suppressed when an image logo is supplied (logo wins).
   const name = logoUrl ? undefined : opts.name;
   const logoMat = logoUrl ? imageDecalMat(scene, "carlogo", logoUrl) : null;
@@ -447,6 +485,18 @@ export function createCar(
       new Vector3(-1, 0, 0), new Vector3(0, 0, -1), new Vector3(0, 1, 0),
     );
     deckLogo.position.set(0, 0.03, -0.34);
+  } else {
+    // AI: the car's number painted flat on the wing-top deck, ~75% of the deck size, on a
+    // transparent panel (wing paint shows through), reading from the RIGHT (+x). Orientation
+    // is derived like the player deckLogo, quarter-turned so the glyph top faces +x.
+    const NS = FLAT * 0.92; // square number panel sized to most of the flat-top chord
+    const numTop = add(MeshBuilder.CreatePlane("wdeckNum", { width: NS, height: NS }, scene),
+      decalMat(scene, "wdeckNum", 256, 256, wingTopNumberDraw(color, num, redNum), false, true),
+      wingPivot as unknown as TransformNode);
+    numTop.rotationQuaternion = Quaternion.RotationQuaternionFromAxis(
+      new Vector3(0, 0, 1), new Vector3(1, 0, 0), new Vector3(0, 1, 0),
+    );
+    numTop.position.set(0, 0.03, -0.34);
   }
   // Down-swept front foil (the scoop) ahead of the flat deck.
   const front = add(MeshBuilder.CreateBox("wfront", { width: WW, height: 0.04, depth: 0.98 }, scene), mBoard, wingPivot as unknown as TransformNode);
@@ -467,7 +517,7 @@ export function createCar(
     } else {
       // AI: a number panel on the rear-upper of the board, facing outward.
       const np = add(MeshBuilder.CreatePlane("wnum" + sx, { width: 0.66, height: 0.42 }, scene),
-        decalMat(scene, "wnum" + sx, 512, 256, wingSideDraw(color, num), sx < 0, true), wingPivot as unknown as TransformNode);
+        decalMat(scene, "wnum" + sx, 512, 256, wingSideDraw(color, num, redNum), sx < 0, true), wingPivot as unknown as TransformNode);
       np.rotation.y = sx > 0 ? -Math.PI / 2 : Math.PI / 2;
       np.position.set((WW / 2) * sx + sx * 0.006, 0.16, -0.42);
     }

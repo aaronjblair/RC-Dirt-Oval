@@ -1,4 +1,4 @@
----
+﻿---
 name: screenshot-game
 description: See the running RCSprint game on screen — screenshot the dev server with headless Chrome on the real GPU (no MCP/Playwright needed). Use for "screenshot the game", "show me the game", "see it on screen", verifying cars/tracks/backdrops/attract reel.
 ---
@@ -31,7 +31,7 @@ Give it a few seconds, then re-check for `200`.
 ## 2. Capture (real GPU — software/SwiftShader is far too slow and hangs)
 ```powershell
 $chrome = "C:\Program Files\Google\Chrome\Application\chrome.exe"
-$png = "C:\Users\aaron\Claude\Projects\RCSprint\run-shot.png"   # root run-*.png is gitignored
+$png = "C:\Users\aaron\Claude\Projects\RC-Dirt-Oval\run-shot.png"   # root run-*.png is gitignored
 $url = "http://127.0.0.1:5173/?demo"
 Start-Process -FilePath $chrome -ArgumentList @(
   "--headless=new","--ignore-gpu-blocklist","--enable-gpu",

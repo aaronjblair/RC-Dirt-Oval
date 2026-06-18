@@ -41,6 +41,8 @@ export class InputManager {
   private swapPedals = false; // throttle/brake reversed if a rig maps them backwards
   private isTouch = false;
   private touch = { steer: 0, throttle: 0, brake: 0, reset: false };
+  /** Fired with a small +/- delta when a touch zoom button is pressed/held. main.ts owns the zoom factor. */
+  onZoom?: (delta: number) => void;
 
   constructor() {
     this.setupTouch();
@@ -161,6 +163,41 @@ export class InputManager {
     rst.textContent = "RESET";
     rst.addEventListener("pointerdown", (e) => { this.touch.reset = true; e.preventDefault(); });
     root.appendChild(rst);
+
+    // --- Zoom +/- (top-right, stacked) — fires onZoom while held, repeating like a typical zoom button. ---
+    const ZOOM_STEP = 0.06; // per repeat tick
+    const mkZoom = (id: string, label: string, top: string, delta: number) => {
+      const z = document.createElement("div");
+      z.id = id;
+      z.style.cssText =
+        `position:absolute;right:max(16px,env(safe-area-inset-right));top:${top};` +
+        "width:52px;height:52px;border-radius:50%;pointer-events:auto;touch-action:none;" +
+        "background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.25);" +
+        "display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:24px;line-height:1;";
+      z.textContent = label;
+      let ptr = -1;
+      let timer: ReturnType<typeof setInterval> | null = null;
+      const release = () => {
+        ptr = -1;
+        if (timer !== null) { clearInterval(timer); timer = null; }
+        z.style.filter = "none";
+      };
+      z.addEventListener("pointerdown", (e) => {
+        if (ptr !== -1) release(); // a fresh press while one is "stuck" — reset first, never hang on
+        ptr = e.pointerId; z.setPointerCapture(e.pointerId); z.style.filter = "brightness(1.45)";
+        this.onZoom?.(delta); // immediate response, then repeat while held
+        timer = setInterval(() => this.onZoom?.(delta), 90);
+        e.preventDefault();
+      });
+      const end = (e: PointerEvent) => { if (e.pointerId === ptr) release(); };
+      z.addEventListener("pointerup", end);
+      z.addEventListener("pointercancel", end);
+      // If the browser revokes the capture (gesture, focus loss), always release so the timer stops.
+      z.addEventListener("lostpointercapture", end);
+      root.appendChild(z);
+    };
+    mkZoom("zoomIn", "+", "max(16px,env(safe-area-inset-top))", ZOOM_STEP);
+    mkZoom("zoomOut", "−", "calc(max(16px,env(safe-area-inset-top)) + 62px)", -ZOOM_STEP);
 
     document.body.appendChild(root);
 

@@ -1,9 +1,9 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 ## What this is
-RCSprint — a browser 3D 1/10-scale dirt-oval RC sprint car game modeled on the **Team Losi 22S Sprint**. Stack: **Babylon.js 7 + Havok (WASM) + Vite + TypeScript**. Driver-stand camera, sim-leaning physics, 15-track career. **Car classes:** the player picks a class on the start screen — **Winged Sprint Car** or **Dirt Late Model** — each with its own body, physics baseline, and **independent career** (`src/car/CarClass.ts`). **Audio:** subtle procedural **electric-motor whine** — a detailed voice for the *player* car plus a lighter, **stereo-panned, distance-faded** whine for **every AI car** (Web Audio, brushless-RC style — pitch tracks throttle/speed), all under one master gain; mute with **M** or the HUD 🔊 button (persisted).
+RC Dirt Oval (internal/codebase name: RCSprint) — a browser 3D 1/10-scale dirt-oval RC sprint car game modeled on the **Team Losi 22S Sprint**. Stack: **Babylon.js 7 + Havok (WASM) + Vite + TypeScript**. Driver-stand camera, sim-leaning physics, 15-track career. **Car classes:** the player picks a class on the start screen — **Winged Sprint Car** or **Dirt Late Model** — each with its own body, physics baseline, and **independent career** (`src/car/CarClass.ts`). **Audio:** procedural **high-revving combustion sprint-car engine** (`src/audio/MotorSound.ts`) — a richer, raspier voice for the *player* car (fundamental + upper harmonics + exhaust-rasp noise) plus a lighter, **stereo-panned, distance-faded** voice for **every AI car**, all under one master gain; mute with **M** / the HUD 🔊 button (persisted), and `setPaused` ramps it to silence while the game is paused.
 
-**Two game modes** (`src/game/Mode.ts`, picked at start after class select): **Career/Sim** (the championship described above — always-advance, points-keyed) and **Arcade** (RC Pro-Am style — on-track pickups/letters/boost-strips/slicks, a score, and a top-3-or-burn-a-continue gate). **Both modes** start each race with a drag-strip **light tree** (staging dots → three ambers → GREEN) in place of the old 3-2-1 text countdown, with a **perfect-launch** boost for hitting the gas right on green.
+**Two game modes** (`src/game/Mode.ts`, picked at start after class select): **Career/Sim** (the championship described above — always-advance, points-keyed) and **Arcade** (RC Pro-Am style — a score and a top-3-or-burn-a-continue gate; defaults to the **RC Pro-Am overhead camera** that keeps the player car screen-centered while the track scrolls around it, `src/core/RCProAmCamera.ts`). The earlier on-track box pickups/letters/boost-strip chevrons were **removed**; only the oil/wet **slick patches** remain. **Both modes** start each race with a drag-strip **light tree** (staging dots → three ambers → GREEN) in place of the old 3-2-1 text countdown, with a **perfect-launch** boost for hitting the gas right on green. **Pause** with **P** / the HUD ⏸ button (freezes sim + race clock + sound); **manual zoom** in every view with the mouse wheel, **+/-** keys, or the on-screen ± buttons on touch.
 
 ## Hard rules
 - **It ships.** `npm run build` → `dist/` must build clean and run from any static host. Use procedural assets or files under `public/`; no server-side dependencies.
@@ -21,7 +21,7 @@ npm run preview  # serve the production build
 ```
 `npm run build` is the only gate (no test runner/linter). `tsconfig` is strict — `noUnusedLocals/Parameters/noImplicitReturns`, so an unused symbol fails the build. Use `npx tsc --noEmit` for a fast typecheck.
 
-In-game: arrows/WASD drive, R reset, **V (or the upper-left button) cycle camera view (In-Car/Track/Aerial)**, C quick-toggle aerial, G garage/setup, M mute engine sound. Gamepad/yoke+pedals take over on actual input.
+In-game: arrows/WASD drive, R reset, **V (or the upper-left button) cycle camera view (In-Car/Track/Aerial/RC-Pro-Am)**, C quick-toggle aerial, **P pause**, **mouse-wheel / +/- zoom** (all views), G garage/setup, M mute engine sound. Gamepad/yoke+pedals take over on actual input. Desktop shows small **V/M keycaps** next to those HUD buttons.
 
 ## Skills (use these — they hold the step-by-step recipes)
 - **screenshot-game** — see the running game on the real GPU (headless Chrome; the only reliable view here — the Playwright MCP shot of this WebGL canvas is stale/garbled).
@@ -30,7 +30,7 @@ In-game: arrows/WASD drive, R reset, **V (or the upper-left button) cycle camera
 - **late-car-model** — build/restyle/tune the **dirt late model** class (`src/car/LateModel.ts`, `LATE_MODEL_CONFIG`): wedge body, sails/spoiler, fenders, planted handling.
 - **world-scale** — the sizing rule (only cars/track are 1:10; everyone/everything else is real-world size) + how to apply/verify it.
 - **night-sky** — night lighting, the crescent moon + starfield, the lamp towers, and how to actually see them (the bowl cameras pitch past the sky).
-- **import-asset** — add an image/texture/binary so it survives dev, the strict build, and the `/RCSprint/` Pages subpath.
+- **import-asset** — add an image/texture/binary so it survives dev, the strict build, and the `/RC-Dirt-Oval/` Pages subpath.
 - **verify-goals** — a build→probe→screenshot→fix loop that runs until the user's stated goals objectively pass.
 - **adaptive-quality** — the FPS-holding render-quality ladder (`src/core/QualityManager.ts`) and the Environment post-FX knobs it drives.
 - **people-anatomy** — add/adjust shoes, hands, and visible knees on the procedural figures (marshals/spectators, flag girl, lawnmower rider).
@@ -75,7 +75,7 @@ In-game: arrows/WASD drive, R reset, **V (or the upper-left button) cycle camera
 
 ## Distribution
 The game ships **two ways** (see `DISTRIBUTION.md` / `README.md`'s Install / Download section):
-- **Installable PWA** via `vite-plugin-pwa` — the build emits a `manifest.webmanifest` + service worker that **precaches the bundle incl. the Havok `.wasm`**; icons are generated by `scripts/gen-icons.mjs` from `public/superjay-32.png` (`pwa-192.png`/`pwa-512.png`/`pwa-maskable-512.png`/`apple-touch-icon-180.png`). Installs as an app on **iOS, Android, Windows, and Mac** from the browser. Live: `https://aaronjblair.github.io/RCSprint/`.
+- **Installable PWA** via `vite-plugin-pwa` — the build emits a `manifest.webmanifest` + service worker that **precaches the bundle incl. the Havok `.wasm`**; icons are generated by `scripts/gen-icons.mjs` from `public/superjay-32.png` (`pwa-192.png`/`pwa-512.png`/`pwa-maskable-512.png`/`apple-touch-icon-180.png`). Installs as an app on **iOS, Android, Windows, and Mac** from the browser. Live: `https://aaronjblair.github.io/RC-Dirt-Oval/`.
 - **Windows installer (.exe)** via Electron + electron-builder — `electron/main.cjs` loads the built `dist/index.html`; config in `electron-builder.yml`; built with `npm run build:win` (→ `scripts/build-win.mjs`). Ships as a **GitHub Release asset**, never committed.
 - Native iOS/Mac/Android **store** builds are **intentionally not produced** (no Apple hardware/account; iOS can't sideload) — install the PWA instead.
 - The **rebuild** skill orchestrates the whole release (docs → build → executables → publish → links).
@@ -83,4 +83,4 @@ The game ships **two ways** (see `DISTRIBUTION.md` / `README.md`'s Install / Dow
 ## Windows / PowerShell
 - `npm` is `npm.cmd` — `Start-Process "npm"` fails. Run `npm run dev` as a background process instead.
 - PowerShell 5.1 has no `&&`. Chain with `;` or `if ($?) { ... }`.
-- **Git is installed but NOT on PATH.** Prepend it before any git command: `$env:Path = "C:\Program Files\Git\cmd;" + $env:Path`. Use `git --no-pager …` for log/diff. The repo's `origin` is the **public** GitHub repo `aaronjblair/RCSprint` (auto-deploys to GitHub Pages on push); commit + push to `main` via the **commit-it** skill.
+- **Git is installed but NOT on PATH.** Prepend it before any git command: `$env:Path = "C:\Program Files\Git\cmd;" + $env:Path`. Use `git --no-pager …` for log/diff. The repo's `origin` is the **public** GitHub repo `aaronjblair/RC-Dirt-Oval` (auto-deploys to GitHub Pages on push); commit + push to `main` via the **commit-it** skill.

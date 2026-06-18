@@ -1,4 +1,4 @@
-============================================================
+﻿============================================================
 RCSprint — BUILD-FROM-SCRATCH PROMPT
 Paste this whole file to an AI coding agent to rebuild the game.
 NOTE: prompt.md is the PRIMARY, deduplicated canonical build spec —
@@ -261,7 +261,7 @@ M7 polish: minimap, menus/results UX, dust, day/night lighting, opening #32 logo
    FPS, picture-perfect grid for BOTH classes.
 
 DISTRIBUTION (cross-platform)
-- Live: https://aaronjblair.github.io/RCSprint/ (GitHub Pages, auto-deploys on push to main).
+- Live: https://aaronjblair.github.io/RC-Dirt-Oval/ (GitHub Pages, auto-deploys on push to main).
 - INSTALLABLE PWA (vite-plugin-pwa): a web-app manifest + a service worker that PRECACHES the whole
   game including the Havok .wasm, so it installs as a real app and runs offline on iOS/Android/
   Windows/Mac (iOS: Share -> Add to Home Screen; Android/desktop: the browser Install button). Icons

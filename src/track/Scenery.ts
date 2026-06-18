@@ -5,6 +5,7 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import type { OvalTrack } from "./OvalTrack";
@@ -93,36 +94,67 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
   //     beside it are scaled up to full human / building size separately. ---
   const standX = outerX + 6;
   const standY = 5; // ~5 ft deck (1 unit ≈ 1 ft)
-  const deck = MeshBuilder.CreateBox("standDeck", { width: 3.2, height: 0.25, depth: 13 }, scene);
+  const standLen = 26; // doubled from 13 so the stand reads as a long grandstand
+  const deck = MeshBuilder.CreateBox("standDeck", { width: 3.2, height: 0.25, depth: standLen }, scene);
   deck.position.set(standX, standY, 0); deck.material = steel; cast(deck);
-  for (const dz of [-6, 0, 6]) for (const dx of [-1.3, 1.3]) {
+  for (const dz of [-13, -6.5, 0, 6.5, 13]) for (const dx of [-1.3, 1.3]) {
     const leg = MeshBuilder.CreateBox("standLeg", { width: 0.25, height: standY, depth: 0.25 }, scene);
     leg.position.set(standX + dx, standY / 2, dz); leg.material = steel; cast(leg);
   }
   // rails front (track side) and back, plus kick boards, so it reads as a walkway
   for (const dx of [-1.5, 1.5]) {
-    const rail = MeshBuilder.CreateBox("standRail" + dx, { width: 0.08, height: 0.08, depth: 13 }, scene);
+    const rail = MeshBuilder.CreateBox("standRail" + dx, { width: 0.08, height: 0.08, depth: standLen }, scene);
     rail.position.set(standX + dx, standY + 1.0, 0); rail.material = steel; cast(rail);
-    const kick = MeshBuilder.CreateBox("standKick" + dx, { width: 0.06, height: 0.4, depth: 13 }, scene);
+    const kick = MeshBuilder.CreateBox("standKick" + dx, { width: 0.06, height: 0.4, depth: standLen }, scene);
     kick.position.set(standX + dx, standY + 0.35, 0); kick.material = steel; cast(kick);
   }
-  // 8 FULL-SIZE, varied spectators standing on the deck along the track-side rail (some with ball
+  // 16 FULL-SIZE, varied spectators standing on the deck along the track-side rail (some with ball
   // caps, some with long hair, varied shirts) — full-human scale (≈5.7u) over the 1:10 toy cars.
   const fans = spectatorLooks();
   // Stand sits at +x, the oval center is at x≈0, so spectators must FACE −x (toward the track).
   // buildPerson's forward is +z-local; world forward = (sin yaw, 0, cos yaw), and (sin,cos)=(-1,0)
   // ⇒ yaw = −π/2. (Was unset/0 = facing +z along the deck, i.e. lined up facing each other.)
   const faceTrack = -Math.PI / 2;
-  for (let i = 0; i < 8; i++) {
-    const z = -5.6 + i * (11.2 / 7); // spread across the walkway
+  const fanCount = 16;
+  for (let i = 0; i < fanCount; i++) {
+    const z = -11.5 + i * (23 / (fanCount - 1)); // evenly spread across the longer walkway
     buildSpectator(scene, i, standX - 1.3, standY + 0.13, z, faceTrack, fans[i % fans.length], shadow);
+  }
+
+  // --- Draped sponsor BANNER behind the stand (outboard +x side), reading at NIGHT ---
+  {
+    const dt = new DynamicTexture("standBannerTex", { width: 1024, height: 256 }, scene, true);
+    const ctx = dt.getContext() as CanvasRenderingContext2D;
+    ctx.fillStyle = "#11161f"; ctx.fillRect(0, 0, 1024, 256);
+    ctx.fillStyle = "#c0392b"; ctx.fillRect(0, 0, 1024, 14); ctx.fillRect(0, 242, 1024, 14);
+    ctx.fillStyle = "#f1c40f"; ctx.font = "bold 110px Arial Black, sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("RC DIRT OVAL", 512, 108);
+    ctx.fillStyle = "#ecf0f1"; ctx.font = "bold 44px Arial, sans-serif";
+    ctx.fillText("FLORA VISTA SPEEDWAY", 512, 196);
+    dt.update();
+    dt.anisotropicFilteringLevel = 16;
+    const bx = standX + 1.5;
+    const path: Vector3[][] = [];
+    for (let z = -13; z <= 13; z += 2) {
+      const top = new Vector3(bx, standY + 1.0, z);
+      const bot = new Vector3(bx, standY - 0.6, z);
+      path.push([top, bot]);
+    }
+    const banner = MeshBuilder.CreateRibbon("standBanner", { pathArray: path, sideOrientation: Mesh.DOUBLESIDE }, scene);
+    const bmat = new PBRMaterial("standBannerMat", scene);
+    bmat.albedoTexture = dt;
+    bmat.emissiveTexture = dt; bmat.emissiveColor = night ? new Color3(0.7, 0.7, 0.7) : new Color3(0.3, 0.3, 0.3);
+    bmat.roughness = 0.8; bmat.metallic = 0;
+    banner.material = bmat;
+    cast(banner);
   }
 
   // --- Small roofed TIMING BOOTH/shack beside the stand on the +z end, with a DARK-GRAY
   //     gable roof. Built native under its own root then scaled to a real building (~9u). ---
   {
     const boothRoot = new TransformNode("boothRoot", scene);
-    boothRoot.position.set(standX, 0, 13 / 2 + 6.5); // just past the +z end of the deck
+    boothRoot.position.set(standX, 0, standLen / 2 + 6.5); // just past the +z end of the deck
     const bScale = 3.4; // ~2.6u native → ~8.8u tall building
     const bCast = (m: Mesh) => {
       if (shadow) shadow.addShadowCaster(m);
@@ -148,6 +180,11 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
     door.position.set(-BW / 2 - 0.01, 0.85, -0.3); door.material = trimM; bCast(door);
     const win = MeshBuilder.CreateBox("boothWin", { width: 0.06, height: 0.7, depth: 1.0 }, scene);
     win.position.set(-BW / 2 - 0.01, 1.6, 0.55); win.material = winM; bCast(win);
+    // LIT window on the BACK (+x / outboard) wall — warm emissive, unlit, reads as "lit from inside" at night
+    const litM = mat(scene, "boothLitWin", new Color3(1.0, 0.85, 0.5), 0.4);
+    litM.disableLighting = true; litM.emissiveColor = new Color3(1.0, 0.85, 0.5);
+    const litWin = MeshBuilder.CreateBox("boothLitWin", { width: 0.06, height: 0.85, depth: 1.3 }, scene);
+    litWin.position.set(BW / 2 + 0.01, 1.5, 0); litWin.material = litM; bCast(litWin);
     boothRoot.scaling.setAll(bScale);
     boothRoot.getChildMeshes().forEach((m) => m.freezeWorldMatrix());
   }

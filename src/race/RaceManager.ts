@@ -22,6 +22,8 @@ export interface RaceState {
   started: boolean;
   finished: boolean;
   totalLaps: number;
+  winnerFinishedAt?: number; // timestamp the leader first crossed the final line
+  endByTime?: number;        // hard race-end deadline = winnerFinishedAt + leader's last-lap time
 }
 
 /**
@@ -49,10 +51,13 @@ export class RaceManager {
 
   start(now: number) {
     this.state.started = true;
+    this.state.finished = false;
+    this.state.winnerFinishedAt = undefined;
+    this.state.endByTime = undefined;
     for (const r of this.racers) {
       r.lap = 0;
       r.lapStart = now;
-      r.prevS = this.track.project(r.getPos()).s;
+      r.prevS = (this.track.project(r.getPos()).s - this.track.startFinishS + this.track.length) % this.track.length;
       r.passedHalf = false;
       r.finished = false;
       r.finishedAt = 0;
@@ -63,14 +68,17 @@ export class RaceManager {
   update(now: number) {
     if (!this.state.started) return;
     const len = this.track.length;
+    const sf = this.track.startFinishS;
     for (const r of this.racers) {
       const proj = this.track.project(r.getPos());
-      const s = proj.s;
+      // Relativize the projected s to the start/finish line so all lap/timing logic
+      // measures from the NEW line, not the geometry origin.
+      const sRel = (proj.s - sf + len) % len;
       // mark having reached the back half (prevents line-jitter false laps)
-      if (s > len * 0.4 && s < len * 0.6) r.passedHalf = true;
+      if (sRel > len * 0.4 && sRel < len * 0.6) r.passedHalf = true;
 
-      // forward crossing of s=0 (prevS near end, s near start)
-      const crossed = r.prevS > len * 0.75 && s < len * 0.25;
+      // forward crossing of the start/finish line (prevS near end, sRel near start)
+      const crossed = r.prevS > len * 0.75 && sRel < len * 0.25;
       if (crossed && r.passedHalf && !r.finished) {
         if (r.lap > 0) {
           r.lastLap = (now - r.lapStart) / 1000;
@@ -85,8 +93,8 @@ export class RaceManager {
           r.lap = this.state.totalLaps;
         }
       }
-      r.prevS = s;
-      r.progress = r.lap * len + s;
+      r.prevS = sRel;
+      r.progress = r.lap * len + sRel;
     }
     // A car that has FINISHED has the most track behind it, but its raw `progress` wraps DOWN at the
     // line (s→0, lap clamped) — so rank finishers first by finish time, then racers by progress.
@@ -95,7 +103,35 @@ export class RaceManager {
       if (a.finished !== b.finished) return a.finished ? -1 : 1;        // a finisher beats a still-racing car
       return b.progress - a.progress;                                   // both racing: more progress leads
     });
-    if (this.racers.length && this.racers.every((r) => r.finished)) this.state.finished = true;
+
+    // Race ends ONE lap after the winner: when the leader first finishes, arm a deadline of
+    // the leader's last lap time; once that elapses (or everyone's in) lock the rest of the field.
+    const leader = this.racers[0];
+    if (leader && leader.finished && this.state.winnerFinishedAt === undefined) {
+      this.state.winnerFinishedAt = leader.finishedAt;
+      const lastLapMs = leader.lastLap > 0 ? leader.lastLap * 1000 : 30000;
+      this.state.endByTime = leader.finishedAt + lastLapMs;
+    }
+
+    const allIn = this.racers.length > 0 && this.racers.every((r) => r.finished);
+    const timeUp = this.state.endByTime !== undefined && now >= this.state.endByTime;
+    if (!this.state.finished && (allIn || timeUp)) {
+      // Lock every still-unfinished car, preserving current running order via synthetic finish stamps.
+      const endAt = this.state.endByTime ?? now;
+      this.racers.forEach((r, i) => {
+        if (!r.finished) {
+          r.finished = true;
+          r.finishedAt = endAt + i; // +i keeps the current order stable among the locked cars
+          r.lap = this.state.totalLaps;
+        }
+      });
+      this.state.finished = true;
+      this.racers.sort((a, b) => {
+        if (a.finished && b.finished) return a.finishedAt - b.finishedAt;
+        if (a.finished !== b.finished) return a.finished ? -1 : 1;
+        return b.progress - a.progress;
+      });
+    }
   }
 
   positionOf(r: Racer): number {
