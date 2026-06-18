@@ -25,10 +25,12 @@ Shipped a large batch (commits `854930f` + `1c72129`), repo renamed to **RC-Dirt
 - **Graphics overhaul** (render pipeline + procedural textures): night-tuned tonemap/grading/vignette/bloom, chromatic aberration + grain (desktop), deeper SSAO, moon halo + richer starfield; multi-scale dirt albedo + 3-octave bump, softer dust.
 - Committed the Super Jay #32 photo asset.
 
+## Also shipped (follow-up)
+- **Geometry restyle** (the model half of the "full graphics overhaul"), commit `78d043f`: finer detail on the sprint car, late model, people, scenery, and track — silhouettes/picture-perfect verified, live. NOTE: the **v0.3.0 .exe predates this**; the live PWA has it. Rebuild the installer (`npm run build:win` → new release) if a fresh .exe is wanted.
+
 ## Deferred (explicitly held — next pass)
 - **WebGPU backend** (WebGL2 fallback): held — can't be verified in this headless-Chrome/Havok/screenshot setup and risks the shippable build. WebGL2 path runs great.
 - **Pre-race mute toggle** on the start screen (muting already works via M / HUD button / persisted).
-- **Procedural-GEOMETRY restyle** (the model-geometry half of the "full graphics overhaul"): held for its own careful picture-perfect verify loop — pipeline + textures already landed.
 
 ## Build / deploy status
 - `npm run build` green; typecheck clean. Live URL 200 at the new repo name.
