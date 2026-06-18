@@ -13,6 +13,7 @@ import { InputManager } from "./core/Input";
 import { DriverStandCamera } from "./core/DriverStandCamera";
 import { CinematicCamera } from "./core/CinematicCamera";
 import { CockpitCamera } from "./core/CockpitCamera";
+import { RCProAmCamera } from "./core/RCProAmCamera";
 import { setupEnvironment, SUN_DIR } from "./core/Environment";
 import { QualityManager } from "./core/QualityManager";
 import { OvalTrack } from "./track/OvalTrack";
@@ -117,6 +118,13 @@ async function boot() {
   aerialCam.inputs.clear();
   aerialCam.setTarget(new Vector3(0, 0, 0));
 
+  // RC Pro-Am overhead camera: the player car stays centred on screen while the track scrolls/rotates
+  // around it (world-up fixed, no yaw-follow). Default view in Arcade mode; also a cycleable view.
+  const rcProAm = new RCProAmCamera(scene);
+  env.pipeline.addCamera(rcProAm.camera);
+  try { scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", rcProAm.camera); }
+  catch { /* SSAO may be unavailable (headless) */ }
+
   // Photo camera: a close 3/4 view locked to the player car — a dev/share affordance to actually SEE
   // the car (the screenshot-game skill's "show the car" need). Active only with `?photo`.
   const photoMode = location.search.includes("photo");
@@ -213,20 +221,22 @@ async function boot() {
   try { scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", photoCam); }
   catch { /* SSAO may be unavailable (headless) */ }
 
-  type View = "normal" | "incar" | "aerial";
-  const VIEW_LABEL: Record<View, string> = { incar: "🎥 In-Car", normal: "📺 Track", aerial: "🚁 Aerial" };
+  type View = "normal" | "incar" | "aerial" | "topdown";
+  const VIEW_LABEL: Record<View, string> = { incar: "🎥 In-Car", normal: "📺 Track", aerial: "🚁 Aerial", topdown: "🎮 RC Pro-Am" };
   // The race ALWAYS starts in Track (driver-stand) view; `?view=incar|aerial` is an explicit override
   // (dev/preview + shareable links). The button / V / C still switch the view live during the race.
   const initialView = (): View => {
     const q = new URLSearchParams(location.search).get("view");
-    return q === "incar" || q === "aerial" ? q : "normal";
+    if (q === "incar" || q === "aerial" || q === "topdown") return q;
+    // Arcade mode defaults to the RC Pro-Am overhead perspective; career defaults to the stand cam.
+    return gameMode === "arcade" ? "topdown" : "normal";
   };
   let view: View = initialView();
   const viewBtn = document.getElementById("view") as HTMLButtonElement | null;
   const reflectView = () => { if (viewBtn) viewBtn.textContent = VIEW_LABEL[view]; };
   const setView = (v: View) => { view = v; reflectView(); };
   reflectView();
-  const cycleView = () => setView(view === "normal" ? "incar" : view === "incar" ? "aerial" : "normal");
+  const cycleView = () => setView(view === "normal" ? "incar" : view === "incar" ? "aerial" : view === "aerial" ? "topdown" : "normal");
   viewBtn?.addEventListener("click", cycleView);
   window.addEventListener("keydown", (e) => {
     if (typingInField(e)) return; // don't let V/C fire while typing a driver name
@@ -268,7 +278,7 @@ async function boot() {
 
     // --- Arcade mode: finish top-3 to advance; otherwise burn a continue. Score accrues across the run. ---
     if (gameMode === "arcade" && arcadeRun && arcade) {
-      arcadeRun.score += arcade.getScore();
+      arcadeRun.score += arcade.getScore() + Math.max(0, race.racers.length - finishPos + 1) * 10;
       const lastTrack = round >= careerTracks.length - 1;
       const advanced = finishPos <= 3;
       if (advanced && !lastTrack) arcadeRun.round = round + 1;
@@ -423,10 +433,12 @@ async function boot() {
     flagGirl.update(frameDt);
     cam.update(field.playerVehicle.position, frameDt);
     if (view === "incar") cockpit.update(frameDt, field.playerVehicle);
+    if (view === "topdown") rcProAm.update(field.playerVehicle.position);
     // Ride a flip externally (the driver-stand cam), not a spinning cockpit.
     const incarBlocked = field.playerVehicle.isStuck || field.playerVehicle.isRolling;
     const live = (view === "incar" && !incarBlocked) ? cockpit.camera
       : view === "aerial" ? aerialCam
+      : view === "topdown" ? rcProAm.camera
       : cam.camera;
     scene.activeCamera = state === "attract" ? cine.camera : live;
     if (photoMode) {
@@ -478,7 +490,6 @@ async function boot() {
       if (arcade && arcadeRun) {
         el("arcScore").textContent = `${arcadeRun.score + arcade.getScore()}`;
         el("arcCont").textContent = `${arcadeRun.continues}`;
-        el("arcLetters").textContent = arcade.getLetters();
       }
     }
   });
