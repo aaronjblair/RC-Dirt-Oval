@@ -98,6 +98,15 @@ export class InputManager {
     const noGesture = (e: Event) => e.preventDefault();
     window.addEventListener("gesturestart", noGesture, { passive: false });
     window.addEventListener("gesturechange", noGesture, { passive: false });
+    window.addEventListener("gestureend", noGesture, { passive: false });
+    // Kill iOS double-tap-to-zoom (rapid taps on the +/- zoom buttons can trigger it): swallow a
+    // second touchend within 300ms. Single deliberate taps and button presses are unaffected.
+    let lastTouchEnd = 0;
+    document.addEventListener("touchend", (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd < 300) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
     // The reliable iOS Safari pinch-zoom block: cancel any MULTI-touch move (touch-action +
     // gesturestart alone don't stop it when each finger is captured by a control). A single finger
     // is never prevented, so the Guide overlay / name input still scroll normally.
@@ -217,7 +226,11 @@ export class InputManager {
     if (vv) {
       const pin = () => {
         root.style.transformOrigin = "0 0";
-        root.style.transform = `translate(${vv.offsetLeft}px, ${vv.offsetTop}px) scale(${1 / vv.scale})`;
+        // Track the visible-area offset (Safari toolbar / scroll) but do NOT counter-SCALE: the scale
+        // term made the whole control layer visibly grow/shift while zooming. Browser zoom is blocked
+        // (gesture* + multi-touch + double-tap above), so vv.scale stays ~1; dropping it keeps the
+        // buttons rock-steady instead of sliding when a zoom/toolbar change slips through.
+        root.style.transform = `translate(${vv.offsetLeft}px, ${vv.offsetTop}px)`;
         root.style.width = `${vv.width}px`;
         root.style.height = `${vv.height}px`;
       };

@@ -422,7 +422,7 @@ export function createLateModel(
     // outline (z, y): top edge from roof rear, back & gently down to the tail; bottom on deck
     const fz = CAB_Z - 0.24;  // front (under the roof rear)
     const rz = -1.12;         // rear (tail)
-    const topF = ROOF_Y - 0.02, topR = 0.30, botY = DECK + 0.02;
+    const topF = ROOF_Y - 0.02, topR = 0.30, botY = 0.23; // bottom raised to the HIGH rear deck so the sails are SHORT fins, not deep bed walls
     add(MeshBuilder.CreateRibbon("lmsail" + sx, {
       pathArray: [
         [new Vector3(SX, topF, fz), new Vector3(SX, topR, rz)],   // top edge
@@ -446,11 +446,11 @@ export function createLateModel(
   //     NO pickup-bed cavity, no see-into-interior. The sails sweep down onto this solid deck. ---
   // solid rear body block spanning the full width, from the cab back to the tail, tall enough to
   // close the cavity from the deck top down into the body (one filled mass, not a thin lid)
-  // FILL the entire rear cavity wall-to-wall: a solid body-color block from the deck floor up to the
-  // side-wall tops (~0.25) so there is NO recessed bed/well between the cab and the tail — a solid
-  // high deck the sails sweep onto. (Earlier thin/narrow caps left the bed walls showing.)
-  const deckPanel = add(MeshBuilder.CreateBox("lmreardeck", { width: 1.52, height: 0.40, depth: 0.92 }, scene), mPaint, root);
-  deckPanel.position.set(0, 0.05, -0.66); // top ≈ 0.25 (flush with the raised side-wall crown), bottom buried in the body
+  // FILL the rear SOLID — a full-width body-color block from the deck up to the roofline behind the
+  // cab, so the back of the car is one solid fastback wedge with NO open bed/well at all (earlier
+  // shorter/narrower caps still left a recessed bed). The sail fins sit on top of this solid mass.
+  const deckPanel = add(MeshBuilder.CreateBox("lmreardeck", { width: 1.6, height: 0.44, depth: 0.9 }, scene), mPaint, root);
+  deckPanel.position.set(0, 0.16, -0.72); // top ≈ ROOF_Y (fills deck→roof), behind the cab (z < cab)
   // a dark deck-top trim line where the solid deck meets the rear window/sails
   add(MeshBuilder.CreateBox("lmdecktrim", { width: HW * 1.7, height: 0.02, depth: 0.04 }, scene), mBlack, root)
     .position.set(0, DECK + 0.06, -0.18);
