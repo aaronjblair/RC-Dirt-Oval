@@ -188,7 +188,7 @@ export class InputManager {
       const z = document.createElement("div");
       z.id = id;
       z.style.cssText =
-        `position:absolute;right:max(16px,env(safe-area-inset-right));top:${top};` +
+        `position:absolute;left:max(12px,env(safe-area-inset-left));top:${top};` +
         "width:52px;height:52px;border-radius:50%;pointer-events:auto;touch-action:none;" +
         "background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.25);" +
         "display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:24px;line-height:1;";
@@ -214,8 +214,10 @@ export class InputManager {
       z.addEventListener("lostpointercapture", end);
       root.appendChild(z);
     };
-    mkZoom("zoomIn", "+", "max(16px,env(safe-area-inset-top))", ZOOM_STEP);
-    mkZoom("zoomOut", "−", "calc(max(16px,env(safe-area-inset-top)) + 62px)", -ZOOM_STEP);
+    // Left edge, vertically centred — clear of the top HUD, the right-side mute/gas/brake, and the
+    // centre of the screen (where they read as "in the way").
+    mkZoom("zoomIn", "+", "calc(50% - 58px)", ZOOM_STEP);
+    mkZoom("zoomOut", "−", "calc(50% + 6px)", -ZOOM_STEP);
 
     document.body.appendChild(root);
 
