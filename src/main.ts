@@ -277,7 +277,7 @@ async function boot() {
   let launchChecked = true;
 
   // --- Manual camera zoom (all views) + Pause (P / ⏸) ---
-  let zoom = 1.0; // 1 = default, >1 = zoomed in; applied to whichever camera is live each frame
+  let zoom = 0.8; // start the race ZOOMED OUT ~25% (1 = default, <1 = out, >1 = in); player can zoom back in
   const clampZoom = (z: number) => Math.max(0.5, Math.min(3.0, z));
   const ZOOM_STEP = 0.12;
   window.addEventListener("wheel", (e) => {

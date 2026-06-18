@@ -256,7 +256,9 @@ export const Screens = {
     const d = document.createElement("div");
     d.style.cssText =
       "position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30;" +
-      "pointer-events:none;font-family:'Segoe UI',system-ui,sans-serif;";
+      "pointer-events:none;font-family:'Segoe UI',system-ui,sans-serif;" +
+      // Smaller (≈1/3) and nudged DOWN from center so it doesn't fill the screen.
+      "transform:translateY(22vh) scale(0.34);transform-origin:center;";
     // A bulb: dim by default; the .lit-* classes brighten it + add a glow.
     const dim = (color: string) =>
       `radial-gradient(circle at 38% 34%, ${color}33 0%, ${color}1a 55%, #05080b 100%)`;
