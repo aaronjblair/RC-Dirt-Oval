@@ -602,10 +602,12 @@ export function createCar(
     const rearBead = add(MeshBuilder.CreateBox("plRear" + sx, { width: 0.03, height: 1.08, depth: 0.04 }, scene), mCarbon, wingPivot as unknown as TransformNode);
     rearBead.position.set((WW / 2) * sx, 0.02, -0.92);
     if (logoMat) {
-      // Hero: the Super Jay 32 logo on the side board, upright (so the "32" is horizontal).
-      const lh = 0.66, lw = lh * logoAspect;
+      // Hero: the Super Jay 32 logo on the side board — rotated 90° LEFT and enlarged.
+      const lh = 1.0, lw = lh * logoAspect;
       const lp = add(MeshBuilder.CreatePlane("wlogo" + sx, { width: lw, height: lh }, scene), logoMat, wingPivot as unknown as TransformNode);
-      lp.rotation.y = sx > 0 ? -Math.PI / 2 : Math.PI / 2; // face outward
+      // RotZ (in-plane spin) is applied before RotY (face outward); the (π/2)*sx sign keeps the
+      // visual "left" rotation consistent across the mirrored (scaling.x = -1) left side.
+      lp.rotation.set(0, sx > 0 ? -Math.PI / 2 : Math.PI / 2, (Math.PI / 2) * sx);
       lp.scaling.x = sx; // un-mirror the left side
       lp.position.set((WW / 2) * sx + sx * 0.01, 0.13, -0.4);
     } else {

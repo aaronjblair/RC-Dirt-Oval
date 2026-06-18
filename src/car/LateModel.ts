@@ -194,10 +194,13 @@ export function createLateModel(
 
   for (const sx of [1, -1]) {
     if (logoMat) {
-      const lh = 0.26, lw = lh / logoAspect;
+      // Super Jay logo on the door — correct portrait aspect (was inverted/stretched), enlarged,
+      // and rotated 90° LEFT to fit the wide-short door (matches the sprint wing treatment).
+      const lh = 0.5, lw = lh * logoAspect;
       const lp = add(MeshBuilder.CreatePlane("lmdoor" + sx, { width: lw, height: lh }, scene), logoMat, root);
-      lp.rotation.y = sx > 0 ? -Math.PI / 2 : Math.PI / 2; lp.scaling.x = sx;
-      lp.position.set(0.62 * sx, 0.0, -0.08);
+      lp.rotation.set(0, sx > 0 ? -Math.PI / 2 : Math.PI / 2, (Math.PI / 2) * sx);
+      lp.scaling.x = sx;
+      lp.position.set(0.62 * sx, 0.02, -0.08);
     } else {
       const door = add(MeshBuilder.CreateBox("lmdoor" + sx, { width: 0.02, height: 0.27, depth: 1.0 }, scene),
         decalMat(scene, "lmdoorD" + sx, 512, 256, lateLiveryDraw(color, num, name), sx < 0), root);
