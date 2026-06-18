@@ -12,8 +12,8 @@ import { UniversalCamera } from "@babylonjs/core/Cameras/universalCamera";
  * the world appears to scroll/rotate beneath it. Because the position and the look-target shift by
  * the same per-frame car delta, the view angle stays constant (no rotation follow).
  */
-const HEIGHT = 22;  // units above the car — high enough to read the oval, low enough to stay lit at night
-const BACK = 9;     // pull the eye toward -z (south) so we look over the car at a steep iso angle (~65° down)
+const HEIGHT = 27.5; // units above the car — zoomed out ~25% (was 22) to show more track around the car
+const BACK = 11.25;  // pull the eye toward -z (south) so we look over the car at a steep iso angle (~65° down)
 
 export class RCProAmCamera {
   readonly camera: UniversalCamera;
