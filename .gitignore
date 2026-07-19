@@ -17,12 +17,15 @@ Thumbs.db
 .claude/*.lock
 .claude/scheduled_tasks.lock
 
-# verification screenshots & reference images (root only — keeps public/**/*.jpg)
+# Verification screenshots & scratch files (ROOT ONLY — keeps public/**, src/assets/**).
+# Captures belong in the session scratchpad, not here; these patterns are the safety net.
 /*.png
 /*.jpeg
 /*.jpg
-/ref-*.jpg
-/_*.jpg
-# scratch dataURL dumps from headless readback verification
 /*.txt
-!/prompt.txt
+/*.log
+/*.html
+/$SCRATCH/
+# ...but the real reference photos ARE tracked
+!/ref-*.jpg
+!/run-ref-*.jpg
