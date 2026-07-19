@@ -21,8 +21,8 @@ export function isTrackChoice(v: string | null): v is TrackChoice {
 }
 
 export function loadTrackChoice(): TrackChoice {
-  // Single-track game (2026-07-19): always the career dirt oval — the figure-8/off-road defs
-  // stay in code (and ?track= dev override still works via main.ts) but the stored pick is ignored.
+  // Single-track game (2026-07-19): always the career Dirt Oval. The figure-8/off-road defs
+  // remain in code but are unreachable (the ?track= override was removed from main.ts too).
   return "career";
 }
 

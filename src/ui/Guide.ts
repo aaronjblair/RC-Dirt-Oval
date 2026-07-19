@@ -34,9 +34,9 @@ function table(rows: string): string {
 
 const CONTENT =
   `<p style="font-size:14.5px;line-height:1.65;color:${INK};margin:0">` +
-  `<b style="color:${ACCENT}">Super Jay RC</b> is a sim-leaning 3D recreation of <b>1/10-scale dirt-oval RC sprint car racing</b>, ` +
-  `modeled on the real <b>Team Losi 22S Sprint</b>. You watch from the drivers' stand, wheel a winged sprinter around a ` +
-  `banked clay oval, and fight an 8–10-car field across a 15-round championship as the track slicks off and your tires fade.` +
+  `<b style="color:${ACCENT}">Super Jay RC</b> is a sim-leaning 3D recreation of <b>1/10-scale dirt-oval RC racing</b> in the ` +
+  `<b>Sport Mod</b> class — the IMCA-style open-wheel modified. You watch from the drivers' stand, wheel the slab-sided ` +
+  `modified around a banked clay oval, and fight an 8–12-car field across a 15-round championship as the track slicks off and your tires fade.` +
   `</p>` +
 
   h("Getting started",
@@ -64,10 +64,11 @@ const CONTENT =
     `on the right, and a <b>RESET</b> button. Add the page to your home screen for a full-screen, app-like ride. ` +
     `Play it on your phone at <b style="color:${ACCENT}">aaronjblair.github.io/RC-Dirt-Oval</b>.`) +
 
-  h("The car — Losi 22S Sprint",
-    `A 2WD winged sprint car on the proven TLR 22 chassis: brushless power on a 2S LiPo, a big raked <b>top wing</b> and ` +
-    `<b>front wing</b> for downforce, roll cage, nerf bars, tubular front axle, and soft-compound <b>2.2" dirt tires</b>. ` +
-    `The wing plants the car at speed; the tires wear and lose grip over a run, just like the real thing.`) +
+  h("The car — Sport Mod",
+    `An IMCA-style <b>open-wheel modified</b>: exposed front wheels on tubular A-arms behind a tube bumper, a narrow ` +
+    `wedge nose, big flat slab door sides carrying the number, sail panels back to a high rear deck and spoiler, ` +
+    `all on smooth <b>slick dirt tires</b>. Heavy and planted — it lives on momentum; the tires wear and lose grip ` +
+    `over a run, just like the real thing.`) +
 
   h("How to drive a dirt oval",
     `Dirt is about <b>momentum and slip</b>, not braking. Roll the corner, get the car turned with a little slide, and feed ` +
@@ -81,8 +82,8 @@ const CONTENT =
   h("The track &amp; the surface",
     `Each oval is real data — length, corner radius, banking, base grip and rut intensity all vary. The clay <b>evolves over a ` +
     `run</b>: tacky early, a blue groove mid-race, then dry-slick and rutted late. Banking grows and the AI sharpens as the ` +
-    `15 rounds get harder, with three <b>night races</b> under the light towers. The grassed infield carries the sprayed ` +
-    `<b>Flora Vista Speedway</b> logo.`) +
+    `15 rounds get harder; <b>day or night is drawn fresh each round</b> — after dark the light towers and corner street ` +
+    `lights carry the show. The grassed infield carries the sprayed <b>Aztec Speedway</b> logo.`) +
 
   h("Flips &amp; the corner crew",
     `Get into someone or the wall hard enough and you'll <b>flip and end up stuck upside down</b> — hi-vis <b>corner marshals</b> ` +

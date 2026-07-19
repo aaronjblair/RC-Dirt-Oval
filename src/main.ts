@@ -17,6 +17,7 @@ import { RCProAmCamera } from "./core/RCProAmCamera";
 import { setupEnvironment, SUN_DIR } from "./core/Environment";
 import { QualityManager } from "./core/QualityManager";
 import { MotionBlurPostProcess } from "@babylonjs/core/PostProcesses/motionBlurPostProcess";
+import { DepthOfFieldEffectBlurLevel } from "@babylonjs/core/PostProcesses/depthOfFieldEffect";
 import { OvalTrack } from "./track/OvalTrack";
 import { buildScenery } from "./track/Scenery";
 import { generateCareer } from "./track/tracks";
@@ -35,7 +36,7 @@ import { loadCareer, saveCareer, resetCareer, awardPoints, standings, POINTS, lo
 import { CAR_CLASSES, CAR_CLASS_LIST, loadCarClass, saveCarClass, isCarClassId, type CarClassId } from "./car/CarClass";
 import { ArcadeManager } from "./game/Arcade";
 import { loadMode, saveMode, modeFromParam, loadArcadeRun, saveArcadeRun, resetArcadeRun, type GameMode } from "./game/Mode";
-import { loadTrackChoice, saveTrackChoice, trackFromParam, trackDefFor, loadDayNight, saveDayNight, type TrackChoice } from "./track/TrackSelect";
+import { loadTrackChoice, saveTrackChoice, trackDefFor, loadDayNight, saveDayNight, type TrackChoice } from "./track/TrackSelect";
 import { RaceRecorder } from "./replay/Replay";
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
@@ -73,11 +74,10 @@ async function boot() {
   const plugin = await initPhysics(scene);
   setBootProgress(50, "Building track…");
 
-  // --- Car class (chosen on the start screen; each class has its own career) ---
-  // `?class=sprint|latemodel|buggy` overrides the saved choice (dev/preview/share).
-  const classParam = new URLSearchParams(location.search).get("class");
-  let carClass: CarClassId = isCarClassId(classParam) ? classParam : loadCarClass();
-  let carClassDef = CAR_CLASSES[carClass];
+  // --- Car class: SINGLE-CLASS GAME — always the Sport Mod. The old `?class=` override is gone
+  //     (it was the last path to the retired sprint/buggy classes). ---
+  const carClass: CarClassId = loadCarClass();
+  const carClassDef = CAR_CLASSES[carClass];
 
   // --- Game mode (chosen on the start screen): "career" (sim championship) or "arcade" (RC Pro-Am
   //     style: on-track pickups, boost strips, collectible letters, slicks, top-3-to-advance + continues).
@@ -85,16 +85,9 @@ async function boot() {
   const modeParam = modeFromParam(new URLSearchParams(location.search).get("mode"));
   const gameMode: GameMode = modeParam ?? loadMode();
 
-  // --- Track choice (start-screen picker): the 15-round career OVAL, a self-crossing FIGURE-8, or a
-  //     jump-laden OFF-ROAD loop. `?track=` overrides. Figure-8/off-road are EXHIBITION races —
-  //     a single stand-alone run with no career points / arcade run-state. Off-road is BUGGY-ONLY and
-  //     defaults to NIGHT (the lit-arena stadium look); the player can toggle day. ---
-  const trackParam = trackFromParam(new URLSearchParams(location.search).get("track"));
-  const trackChoice: TrackChoice = trackParam ?? loadTrackChoice();
-  // OFF-ROAD is BUGGY-ONLY: force the whole field (player + AI all build from this one classDef) to
-  // buggies whenever the off-road track is chosen — regardless of the saved class or a ?class= override.
-  // (Buggies may still race the oval/figure-8; the rule is one-directional.)
-  if (trackChoice === "offroad") { carClass = "buggy"; carClassDef = CAR_CLASSES.buggy; }
+  // --- Track: SINGLE-TRACK GAME — always the career Dirt Oval. The old `?track=` override
+  //     (figure-8 / off-road exhibitions) is gone; those defs remain in code, unreachable. ---
+  const trackChoice: TrackChoice = loadTrackChoice();
   const exhibition = trackChoice !== "career";
   const arcadeRun = (gameMode === "arcade" && !exhibition) ? loadArcadeRun() : null;
 
@@ -133,6 +126,7 @@ async function boot() {
   } catch { /* ignore */ }
   // Motion blur is ULTRA-only (desktop): a subtle screen-space blur on the main race cam for
   // sense of speed. Created detached; the tier callback attaches it only on the top rung.
+  let mblur: MotionBlurPostProcess | null = null;
   if (!coarsePointer) {
     try {
       const mb = new MotionBlurPostProcess("mblur", scene, 1.0, cam.camera);
@@ -140,16 +134,10 @@ async function boot() {
       mb.motionStrength = 0.5;
       mb.motionBlurSamples = 16;
       cam.camera.detachPostProcess(mb);
-      let mbOn = false;
-      quality.setTierCallback((tier) => {
-        const want = tier >= 4;
-        if (want === mbOn) return;
-        mbOn = want;
-        if (want) cam.camera.attachPostProcess(mb);
-        else cam.camera.detachPostProcess(mb);
-      });
+      mblur = mb;
     } catch { /* motion blur unavailable (weak GPU/headless) — every other effect still applies */ }
   }
+  // (the combined tier callback — motion blur / SSR / glow — is wired after all cameras exist, below)
   (window as any).__quality = {
     get tier() { return quality.tier; },
     get locked() { return quality.locked; },
@@ -180,11 +168,15 @@ async function boot() {
   photoCam.minZ = 0.05; photoCam.maxZ = 6000; photoCam.fov = 0.6;
   photoCam.inputs.clear();
   env.pipeline.addCamera(aerialCam);
+  try { scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", aerialCam); }
+  catch { /* SSAO may be unavailable (headless) */ }
   // (the in-car / track / aerial view state + toggle is set up after the field is built, below)
 
   // Cinematic "broadcast" camera for the opening attract reel
   const cine = new CinematicCamera(scene);
   env.pipeline.addCamera(cine.camera);
+  try { scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", cine.camera); }
+  catch { /* SSAO may be unavailable (headless) */ }
 
   const sun = new DirectionalLight("sun", SUN_DIR, scene);
   sun.position = SUN_DIR.scale(-90);
@@ -287,6 +279,45 @@ async function boot() {
   env.pipeline.addCamera(photoCam);
   try { scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssao", photoCam); }
   catch { /* SSAO may be unavailable (headless) */ }
+
+  // --- Premium-FX tier gating (one combined callback — setTierCallback REPLACES, so all gates
+  //     live here): Ultra ⇒ motion blur; High+ ⇒ SSR reflections; Min ⇒ glow layer off. ---
+  const ssrCams = [cam.camera, cockpit.camera, photoCam, cine.camera];
+  if (env.ssr) {
+    // constructed attached to the stand cam only — bring the other hero cams in
+    try { scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssr", [cockpit.camera, photoCam, cine.camera]); }
+    catch { /* SSR may be unavailable */ }
+  }
+  let mbOn = false, ssrOn = true;
+  const applyTierFx = (tier: number) => {
+    if (mblur) {
+      const want = tier >= 4;
+      if (want !== mbOn) {
+        mbOn = want;
+        if (want) cam.camera.attachPostProcess(mblur);
+        else cam.camera.detachPostProcess(mblur);
+      }
+    }
+    if (env.ssr) {
+      const want = tier >= 3;
+      if (want !== ssrOn) {
+        ssrOn = want;
+        try {
+          if (want) scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("ssr", ssrCams);
+          else scene.postProcessRenderPipelineManager.detachCamerasFromRenderPipeline("ssr", ssrCams);
+        } catch { /* ignore */ }
+      }
+    }
+    if (env.glow) env.glow.isEnabled = tier >= 1;
+  };
+  quality.setTierCallback(applyTierFx);
+  applyTierFx(quality.tier); // reconcile with the starting tier immediately
+
+  // --- Cinematic depth-of-field: photo mode / replay / the intro hero shot only (never racing).
+  //     Focus distance tracks the player car each frame in the render loop. ---
+  env.pipeline.depthOfFieldBlurLevel = DepthOfFieldEffectBlurLevel.Medium;
+  env.pipeline.depthOfField.fStop = 1.6;
+  env.pipeline.depthOfField.focalLength = 80; // mm
 
   type View = "normal" | "incar" | "aerial" | "topdown";
   const VIEW_LABEL: Record<View, string> = { incar: "🎥 In-Car", normal: "📺 Track", aerial: "🚁 Aerial", topdown: "🎮 RC Pro-Am" };
@@ -747,6 +778,15 @@ async function boot() {
         : view === "topdown" ? rcProAm.camera
         : cam.camera;
       scene.activeCamera = state === "attract" ? (introHold > 0 ? aerialCam : cine.camera) : live;
+    }
+    // Cinematic DoF only in photo mode / replay / the intro hero shot — racing stays crisp.
+    const wantDof = photoMode || state === "replay" || (state === "attract" && introHold > 0);
+    if (env.pipeline.depthOfFieldEnabled !== wantDof) env.pipeline.depthOfFieldEnabled = wantDof;
+    if (wantDof && scene.activeCamera) {
+      const camPos = scene.activeCamera.globalPosition;
+      const pp = field.playerVehicle.position;
+      const dx = camPos.x - pp.x, dy = camPos.y - pp.y, dz = camPos.z - pp.z;
+      env.pipeline.depthOfField.focusDistance = Math.sqrt(dx * dx + dy * dy + dz * dz) * 1000; // mm
     }
     if (photoMode) {
       // Lock a close rear-3/4 view onto the player car (shows the spoiler/sail/roof), heading-relative

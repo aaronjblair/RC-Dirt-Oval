@@ -59,7 +59,7 @@ export const Screens = {
       "background:linear-gradient(to bottom,rgba(0,0,0,0.30) 0%,rgba(0,0,0,0) 26%,rgba(0,0,0,0) 64%,rgba(0,0,0,0.60) 100%);";
     d.innerHTML =
       `<div style="font-size:64px;font-weight:900;letter-spacing:4px;color:#ffd34d;text-shadow:0 4px 26px rgba(0,0,0,0.95)">SUPER JAY RC</div>
-       <div style="font-size:15px;letter-spacing:2px;color:#dfe7f0;text-shadow:0 2px 10px rgba(0,0,0,0.9);margin-top:2px">1/10 DIRT-OVAL SPRINT CAR RACING</div>
+       <div style="font-size:15px;letter-spacing:2px;color:#dfe7f0;text-shadow:0 2px 10px rgba(0,0,0,0.9);margin-top:2px">1/10 DIRT-OVAL SPORT MOD RACING</div>
        <div style="font-size:12px;color:#c8d0da;text-shadow:0 2px 8px rgba(0,0,0,0.9);margin-top:6px">Featuring &middot; ${def.name}</div>
        <div style="margin-top:22px;font-size:15px;font-weight:800;color:#0c0f14;background:#ffd34d;padding:12px 28px;border-radius:30px;box-shadow:0 6px 20px rgba(0,0,0,0.5);animation:atPulse 1.4s ease-in-out infinite">CLICK OR PRESS ANY KEY TO RACE</div>
        <button id="atGuide" style="margin-top:14px;background:rgba(0,0,0,0.42);border:1px solid rgba(255,255,255,0.28);color:#eef2f7;font-size:13px;font-weight:600;letter-spacing:0.5px;padding:8px 18px;border-radius:24px;cursor:pointer">&#128214; Driver's Manual</button>`;
@@ -74,96 +74,6 @@ export const Screens = {
     // Manual opens without starting the race (stop the click from bubbling to `go`).
     (d.querySelector("#atGuide") as HTMLButtonElement).addEventListener("click", (e) => { e.stopPropagation(); openGuide(); });
     return d;
-  },
-
-  /** Choose the car class to race (shown when the app opens). Picking the current class continues;
-   *  picking another reloads into it (the caller persists + reloads). */
-  classSelect(
-    current: string,
-    classes: { id: string; label: string; subtitle: string }[],
-    onPick: (id: string) => void,
-  ): HTMLDivElement {
-    const cards = classes.map((c) => {
-      const sel = c.id === current;
-      return `<button id="cls_${c.id}" style="${BTN2};text-align:left;margin-top:12px;padding:14px 16px;${sel ? "border:2px solid #ffd34d;background:#3a4250" : "border:2px solid transparent"}">
-          <div style="font-size:16px;font-weight:800;color:#ffd34d">${c.label}${sel ? " &nbsp;<span style='font-size:11px;color:#9aa6b3'>(current)</span>" : ""}</div>
-          <div style="font-size:12px;color:#c8d0da;margin-top:3px">${c.subtitle}</div>
-        </button>`;
-    }).join("");
-    const p = panel(
-      `<div style="font-size:12px;color:#9aa6b3;letter-spacing:1px">CHOOSE YOUR CLASS</div>
-       <div style="font-size:22px;font-weight:800;color:#ffd34d;margin:2px 0 4px">Pick a car</div>
-       <div style="font-size:12px;color:#c8d0da;margin-bottom:6px">Each class runs its own championship. Switch any time from here.</div>
-       ${cards}`
-    );
-    for (const c of classes) {
-      (p.querySelector(`#cls_${c.id}`) as HTMLButtonElement).onclick = () => { p.remove(); onPick(c.id); };
-    }
-    return p;
-  },
-
-  /** Pick the game mode (shown before the class/career flow). Highlights `current`; clicking a
-   *  button removes the overlay and calls `onPick(mode)`. */
-  modeSelect(current: "career" | "arcade", onPick: (mode: "career" | "arcade") => void): void {
-    const modes: { id: "career" | "arcade"; label: string; subtitle: string }[] = [
-      { id: "career", label: "CAREER / SIM", subtitle: "Realistic 15-track championship. Evolving grip, garage setup, always advance." },
-      { id: "arcade", label: "ARCADE (RC Pro-Am)", subtitle: "Grab pickups &amp; boost strips, collect the letters, dodge the slicks. Finish top-3 or burn a continue." },
-    ];
-    const cards = modes.map((m) => {
-      const sel = m.id === current;
-      return `<button id="mode_${m.id}" style="${BTN2};text-align:left;margin-top:12px;padding:14px 16px;${sel ? "border:2px solid #ffd34d;background:#3a4250" : "border:2px solid transparent"}">
-          <div style="font-size:16px;font-weight:800;color:#ffd34d">${m.label}${sel ? " &nbsp;<span style='font-size:11px;color:#9aa6b3'>(current)</span>" : ""}</div>
-          <div style="font-size:12px;color:#c8d0da;margin-top:3px">${m.subtitle}</div>
-        </button>`;
-    }).join("");
-    const p = panel(
-      `<div style="font-size:12px;color:#9aa6b3;letter-spacing:1px">CHOOSE MODE</div>
-       <div style="font-size:22px;font-weight:800;color:#ffd34d;margin:2px 0 4px">How do you want to race?</div>
-       <div style="font-size:12px;color:#c8d0da;margin-bottom:6px">Pick a mode &mdash; you can come back here any time.</div>
-       ${cards}`
-    );
-    for (const m of modes) {
-      (p.querySelector(`#mode_${m.id}`) as HTMLButtonElement).onclick = () => { p.remove(); onPick(m.id); };
-    }
-  },
-
-  preRace(def: TrackDef, round: number, total: number, champ: Standing[], onStart: () => void): HTMLDivElement {
-    const p = panel(
-      `<div style="font-size:12px;color:#9aa6b3;letter-spacing:1px">ROUND ${round + 1} / ${total} &middot; DIFFICULTY ${def.difficulty}</div>
-       <div style="font-size:24px;font-weight:800;color:#ffd34d;margin:2px 0 2px">${def.name}</div>
-       <div style="font-size:12px;color:#c8d0da;margin-bottom:12px">${def.laps} laps &middot; ${def.fieldSize} cars &middot; banking ${(def.banking * 57.3).toFixed(0)}&deg;</div>
-       <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:8px">CHAMPIONSHIP</div>
-       ${standingsTable(champ)}
-       <button id="scStart" style="${BTN}">START RACE</button>
-       <button id="scGuide" style="${BTN2}">&#128214; DRIVER'S MANUAL</button>
-       <div style="font-size:11px;color:#7f8a98;text-align:center;margin-top:10px">Press <b>G</b> for garage setup &middot; <b>Arrows/WASD</b> or gamepad to drive</div>`
-    );
-    (p.querySelector("#scStart") as HTMLButtonElement).onclick = () => { p.remove(); onStart(); };
-    (p.querySelector("#scGuide") as HTMLButtonElement).onclick = () => openGuide();
-    return p;
-  },
-
-  /** Optional driver-name entry shown after START. The box is pre-filled with `defaultName`
-   *  ("Super Jay" by default); keep it or type your own. Blank → default. `onSubmit` gets the raw
-   *  text (the caller title-cases it). */
-  namePrompt(defaultName: string, onSubmit: (raw: string) => void): HTMLDivElement {
-    const p = panel(
-      `<div style="font-size:22px;font-weight:800;color:#ffd34d;margin-bottom:4px">Driver name</div>
-       <div style="font-size:12px;color:#c8d0da;margin-bottom:14px">Enter your name for the leaderboard, or leave it as is.</div>
-       <input id="scName" type="text" maxlength="22" autocomplete="off"
-         style="display:block;width:100%;box-sizing:border-box;padding:12px;border:1px solid #2a3340;border-radius:10px;
-         background:#0c0f14;color:#eef2f7;font-size:16px;font-family:inherit;outline:none" />
-       <button id="scNameGo" style="${BTN}">GO</button>`
-    );
-    const input = p.querySelector("#scName") as HTMLInputElement;
-    input.value = defaultName;
-    let done = false;
-    const submit = () => { if (done) return; done = true; const raw = input.value; p.remove(); onSubmit(raw); };
-    (p.querySelector("#scNameGo") as HTMLButtonElement).onclick = submit;
-    input.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } });
-    // Focus + select so the user can immediately type over the default.
-    setTimeout(() => { input.focus(); input.select(); }, 0);
-    return p;
   },
 
   /** ONE unified pre-race setup screen: driver name + car class + game mode + sound, then START.
@@ -229,18 +139,8 @@ export const Screens = {
     const input = p.querySelector("#suName") as HTMLInputElement;
     input.value = opts.name;
     const paint = () => {
-      p.querySelectorAll(".suClass").forEach((b) => {
-        const el = b as HTMLElement, on = el.dataset.id === selClass;
-        el.style.border = on ? "2px solid #ffd34d" : "2px solid transparent";
-        el.style.background = on ? "#3a4250" : "#33414f";
-      });
       p.querySelectorAll(".suMode").forEach((b) => {
         const el = b as HTMLElement, on = el.dataset.id === selMode;
-        el.style.border = on ? "2px solid #ffd34d" : "2px solid transparent";
-        el.style.background = on ? "#3a4250" : "#33414f";
-      });
-      p.querySelectorAll(".suTrack").forEach((b) => {
-        const el = b as HTMLElement, on = el.dataset.id === selTrack;
         el.style.border = on ? "2px solid #ffd34d" : "2px solid transparent";
         el.style.background = on ? "#3a4250" : "#33414f";
       });
@@ -250,19 +150,7 @@ export const Screens = {
       (p.querySelector("#suSound") as HTMLButtonElement).innerHTML = selMuted ? "&#128263; SOUND: OFF" : "&#128266; SOUND: ON";
       (p.querySelector("#suAuto") as HTMLButtonElement).innerHTML = selAuto ? "&#127937; AUTO-THROTTLE: ON (steer only)" : "&#127937; AUTO-THROTTLE: OFF";
     };
-    p.querySelectorAll(".suClass").forEach((b) => ((b as HTMLElement).onclick = () => {
-      selClass = (b as HTMLElement).dataset.id!;
-      // Off-road is buggy-only: choosing a non-buggy class drops off-road back to the career oval.
-      if (selClass !== "buggy" && selTrack === "offroad") selTrack = "career";
-      paint();
-    }));
     p.querySelectorAll(".suMode").forEach((b) => ((b as HTMLElement).onclick = () => { selMode = (b as HTMLElement).dataset.id as "career" | "arcade"; paint(); }));
-    p.querySelectorAll(".suTrack").forEach((b) => ((b as HTMLElement).onclick = () => {
-      selTrack = (b as HTMLElement).dataset.id as "career" | "figure8" | "offroad";
-      // Off-road is buggy-only: picking it switches the class to the buggy.
-      if (selTrack === "offroad") selClass = "buggy";
-      paint();
-    }));
     // In career the time button is informational ("RANDOM per round") — don't let a click flip the
     // hidden selTime (which would force a needless reload + write the exhibition pref on START).
     (p.querySelector("#suTime") as HTMLButtonElement).onclick = () => { if (selTrack !== "career") { selTime = selTime === "night" ? "day" : "night"; paint(); } };

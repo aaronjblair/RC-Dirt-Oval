@@ -18,7 +18,7 @@ export class SetupPanel {
   private root: HTMLDivElement;
   private visible = false;
 
-  constructor(private setup: CarSetup, private onChange: (s: CarSetup) => void, private className = "Losi 22S Sprint") {
+  constructor(private setup: CarSetup, private onChange: (s: CarSetup) => void, private className = "Sport Mod") {
     this.root = document.createElement("div");
     this.root.style.cssText =
       "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;" +

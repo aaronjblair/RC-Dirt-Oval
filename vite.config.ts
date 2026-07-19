@@ -16,7 +16,7 @@ export default defineConfig({
       manifest: {
         name: "Super Jay RC",
         short_name: "Super Jay RC",
-        description: "1/10 dirt-oval RC sprint car racing",
+        description: "1/10 dirt-oval RC Sport Mod racing",
         display: "standalone",
         orientation: "landscape",
         background_color: "#0a0c10",

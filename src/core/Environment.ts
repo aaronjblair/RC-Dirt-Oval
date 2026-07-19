@@ -12,11 +12,14 @@ import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imagePro
 import { ColorCurves } from "@babylonjs/core/Materials/colorCurves";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
 import { SSAO2RenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline";
+import { SSRRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssrRenderingPipeline";
+import { GlowLayer } from "@babylonjs/core/Layers/glowLayer";
 import { SkyMaterial } from "@babylonjs/materials/sky/skyMaterial";
 import "@babylonjs/core/Materials/standardMaterial";
 import "@babylonjs/core/Rendering/depthRendererSceneComponent";
 import "@babylonjs/core/Rendering/prePassRendererSceneComponent";
 import "@babylonjs/core/Rendering/geometryBufferRendererSceneComponent";
+import "@babylonjs/core/Layers/effectLayerSceneComponent";
 
 /** Afternoon sun direction (points FROM sky TO ground). */
 export const SUN_DIR = new Vector3(-0.4, -0.92, 0.32).normalize();
@@ -24,6 +27,8 @@ export const SUN_DIR = new Vector3(-0.4, -0.92, 0.32).normalize();
 export interface EnvHandles {
   pipeline: DefaultRenderingPipeline;
   ssao: SSAO2RenderingPipeline | null;
+  ssr: SSRRenderingPipeline | null;   // screen-space reflections (desktop, tier-gated)
+  glow: GlowLayer | null;             // scene-wide emissive glow (lamps/moon/stars)
 }
 
 /**
@@ -80,12 +85,19 @@ export function setupEnvironment(scene: Scene, camera: Camera, night = false, hi
   // bright lamp towers + moon from blowing out; punch contrast for a moodier image.
   ip.exposure = night ? 1.15 : 1.0;
   ip.contrast = night ? 1.42 : 1.25;
-  // Cool the midtones at night so the world reads as cold moonlight, not muddy gray.
-  if (night) {
+  // Graded broadcast look, day AND night: cool moonlight midtones after dark; a warm
+  // golden-hour grade (warm highlights, gentle teal shadows) in the daylight races.
+  {
     const cc = new ColorCurves();
-    cc.globalSaturation = 8;        // slightly richer color in the dark
-    cc.shadowsHue = 220; cc.shadowsDensity = 18; cc.shadowsSaturation = 30; // blue shadows
-    cc.highlightsHue = 48; cc.highlightsDensity = 8; cc.highlightsSaturation = 14; // warm lamp glow
+    if (night) {
+      cc.globalSaturation = 8;        // slightly richer color in the dark
+      cc.shadowsHue = 220; cc.shadowsDensity = 18; cc.shadowsSaturation = 30; // blue shadows
+      cc.highlightsHue = 48; cc.highlightsDensity = 8; cc.highlightsSaturation = 14; // warm lamp glow
+    } else {
+      cc.globalSaturation = 12;       // sun-soaked color pop
+      cc.shadowsHue = 200; cc.shadowsDensity = 10; cc.shadowsSaturation = 14;  // gentle teal shadows
+      cc.highlightsHue = 45; cc.highlightsDensity = 14; cc.highlightsSaturation = 12; // golden highlights
+    }
     ip.colorCurves = cc;
     ip.colorCurvesEnabled = true;
   }
@@ -139,7 +151,40 @@ export function setupEnvironment(scene: Scene, camera: Camera, night = false, hi
     console.warn("[RCSprint] SSAO unavailable", e);
   }
 
-  return { pipeline, ssao: ssaoHandle };
+  // --- GlowLayer: real emissive glow on the lamp lenses/halos, moon, stars, and gantry —
+  //     scene-wide (no per-camera plumbing), cheap at half-res, huge night-atmosphere win.
+  let glowHandle: GlowLayer | null = null;
+  try {
+    const glow = new GlowLayer("glow", scene, { mainTextureRatio: 0.5 });
+    glow.intensity = night ? 0.65 : 0.3;
+    glowHandle = glow;
+  } catch (e) {
+    console.warn("[RCSprint] GlowLayer unavailable", e);
+  }
+
+  // --- SSR: screen-space reflections — the clearcoat bodies, chrome, and (at night) the
+  //     lamp glow pick up real reflections off the clay. Desktop only; the quality ladder
+  //     attaches/detaches it per tier (High+). Conservative march settings hold 60 FPS.
+  let ssrHandle: SSRRenderingPipeline | null = null;
+  if (highQuality) {
+    try {
+      const ssr = new SSRRenderingPipeline("ssr", scene, [camera], false);
+      ssr.strength = 0.55;
+      ssr.reflectionSpecularFalloffExponent = 2;
+      ssr.maxSteps = 80;
+      ssr.maxDistance = 60;
+      ssr.thickness = 0.5;
+      ssr.roughnessFactor = 0.05;
+      ssr.selfCollisionNumSkip = 2;
+      ssr.blurDispersionStrength = 0.03;
+      ssr.attenuateFacingCamera = true;
+      ssrHandle = ssr;
+    } catch (e) {
+      console.warn("[RCSprint] SSR unavailable", e);
+    }
+  }
+
+  return { pipeline, ssao: ssaoHandle, ssr: ssrHandle, glow: glowHandle };
 }
 
 /**
