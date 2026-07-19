@@ -40,7 +40,11 @@ function ovalCenterline(def: TrackDef): Centerline {
   const length = 2 * L + 2 * Math.PI * R;
   return {
     length,
-    startFinishS: 0.7 * (length / 2),
+    // The front straight (+x, where the grandstand sits) runs s ∈ [length−L/2 .. L/2] (z −L/2 → +L/2).
+    // The start/finish line sits 3/4 of the way DOWN that stretch in the race direction — z = +L/4,
+    // i.e. s = L/4 — directly in front of the stands. (The old 0.7*(length/2) was a units bug that
+    // landed the line at the turn-1 exit on the far side of the track.)
+    startFinishS: L / 4,
     pointAt(s: number): CenterSample {
       let pos: Vector3, tangent: Vector3, outward: Vector3, inTurn = false;
       if (s < half) {
@@ -86,16 +90,18 @@ function fromParametric(
   xz: (u: number) => { x: number; z: number },
   elev: (u: number) => number,
   startFinishFrac: number,
+  bankFn: (u: number) => number = () => 0,
 ): Centerline {
   const N = 4000;
   const px = new Float64Array(N + 1);
   const pz = new Float64Array(N + 1);
   const py = new Float64Array(N + 1);
+  const pb = new Float64Array(N + 1); // banking (rad) at each node — 0 unless bankFn supplied
   const cum = new Float64Array(N + 1); // cumulative arc length (planar) at each node
   for (let i = 0; i <= N; i++) {
     const u = i / N;
     const p = xz(u);
-    px[i] = p.x; pz[i] = p.z; py[i] = elev(u);
+    px[i] = p.x; pz[i] = p.z; py[i] = elev(u); pb[i] = bankFn(u);
   }
   for (let i = 1; i <= N; i++) {
     const dx = px[i] - px[i - 1];
@@ -119,6 +125,7 @@ function fromParametric(
     const x = px[i0] + (px[i1] - px[i0]) * f;
     const z = pz[i0] + (pz[i1] - pz[i0]) * f;
     const y = py[i0] + (py[i1] - py[i0]) * f;
+    const bank = pb[i0] + (pb[i1] - pb[i0]) * f;
     // tangent in the xz plane from the local segment
     let tx = px[i1] - px[i0];
     let tz = pz[i1] - pz[i0];
@@ -127,7 +134,7 @@ function fromParametric(
       pos: new Vector3(x, y, z),
       tangent: new Vector3(tx, 0, tz),
       outward: outwardOf(tx, tz),
-      bank: 0,
+      bank,
     };
   };
 
@@ -154,35 +161,70 @@ function figure8Centerline(def: TrackDef): Centerline {
 }
 
 /**
- * Off-road dirt loop: a winding closed loop (no self-crossing) with 3 ramp
- * crests that raise the surface for real jumps. The rising face of each ramp,
- * combined with the vehicle's climb-rate launch, throws the car into a genuine
- * arc; it lands back on the descending surface / flat ground. Runs in DAYLIGHT.
+ * Off-road STADIUM loop: a compact winding closed loop (no self-crossing) ringed
+ * by an arena, with BANKED end-corners (packed berms) and a supercross-style mix
+ * of jump types — tabletop, double, big single, step-up/plateau/step-down, and a
+ * whoops/rhythm section. Each ramp raises the surface; its rising face plus the
+ * vehicle's climb-rate launch throws the car into a real arc that lands on the
+ * descending surface / flat ground. Buggy-only; defaults to NIGHT (lit arena).
  */
 function offroadCenterline(def: TrackDef): Centerline {
-  const R0 = def.cornerRadius + def.straightLength * 0.5 + 26; // base loop radius
+  const R0 = def.cornerRadius + def.straightLength * 0.5 + 18; // base loop radius (compact arena footprint)
   // Winding radius: sum of sines makes sweeping curves + tighter kinks around the loop.
   const xz = (u: number) => {
     const t = u * Math.PI * 2;
-    const r = R0 + 14 * Math.sin(2 * t) + 9 * Math.sin(3 * t + 0.7) + 5 * Math.sin(5 * t + 1.9);
+    const r = R0 + 10 * Math.sin(2 * t) + 6 * Math.sin(3 * t + 0.7) + 4 * Math.sin(5 * t + 1.9);
     return { x: r * Math.cos(t), z: r * 1.15 * Math.sin(t) };
   };
-  // Ramp crests: Gaussian bumps in u, placed away from the start/finish (u≈0).
+
+  // BANKED BERM CORNERS: lift the two sweeping end-turns (~u 0.25 / 0.75) into packed
+  // berms you can lean on. buildSurface lifts the outer edge by W·tan(bank) and the
+  // vehicle reads slope grip off the ground normal, so the bank works for free.
+  const bank = (u: number) => {
+    const bump = (c: number) => {
+      let d = u - c; if (d > 0.5) d -= 1; else if (d < -0.5) d += 1;
+      const w = 0.085;
+      return Math.abs(d) < w ? Math.cos((d / w) * (Math.PI / 2)) : 0;
+    };
+    return (bump(0.25) + bump(0.75)) * 0.2; // ~11.5° peak banking on the end-corners
+  };
+
+  // Each jump = a trapezoid (linear up-face / flat crest / linear fall); heights SUM,
+  // so close ramps build doubles/whoops. Faces are authored in u-units: a SMALLER
+  // rise/fall = a steeper, taller-launching face; a tiny crest = a peaked jump; a long
+  // crest = a flat table (or a raised plateau between a step-up and a step-down). All
+  // features sit clear of the start/finish (u≈0) and the banked corners (u≈0.25/0.75).
   const ramps = [
-    { u: 0.18, h: 3.4, w: 0.022 },
-    { u: 0.46, h: 4.2, w: 0.026 },
-    { u: 0.74, h: 3.0, w: 0.020 },
+    // ~0.10  classic TABLETOP — the safe/forgiving jump (long flat deck)
+    { u: 0.10, h: 3.0, rise: 0.0085, crest: 0.0140, fall: 0.0085 },
+    // ~0.34/0.385  DOUBLE — two peaked humps with a valley between (fly hump-to-hump)
+    { u: 0.340, h: 3.2, rise: 0.0060, crest: 0.0012, fall: 0.0055 },
+    { u: 0.385, h: 3.2, rise: 0.0055, crest: 0.0012, fall: 0.0070 },
+    // ~0.50  BIG SINGLE — tall, steep short takeoff, peaked, gentle landing (big air)
+    { u: 0.50, h: 4.8, rise: 0.0058, crest: 0.0014, fall: 0.0130 },
+    // ~0.60  STEP-UP → raised PLATEAU → STEP-DOWN (steep takeoff, long high deck, drop off)
+    { u: 0.60, h: 3.6, rise: 0.0060, crest: 0.0380, fall: 0.0100 },
+    // ~0.84–0.89  WHOOPS / RHYTHM — a run of small bumps to skim or double through
+    { u: 0.840, h: 1.0, rise: 0.0040, crest: 0.0000, fall: 0.0040 },
+    { u: 0.852, h: 1.1, rise: 0.0040, crest: 0.0000, fall: 0.0040 },
+    { u: 0.864, h: 1.1, rise: 0.0040, crest: 0.0000, fall: 0.0040 },
+    { u: 0.876, h: 1.1, rise: 0.0040, crest: 0.0000, fall: 0.0040 },
+    { u: 0.888, h: 1.0, rise: 0.0040, crest: 0.0000, fall: 0.0040 },
   ];
   const elev = (u: number) => {
     let y = 0;
     for (const r of ramps) {
-      // wrap-aware distance in u
-      let d = Math.abs(u - r.u); if (d > 0.5) d = 1 - d;
-      y += r.h * Math.exp(-(d * d) / (r.w * r.w));
+      // signed wrap-aware distance in u (− = before the crest / up-face, + = after / down-face)
+      let d = u - r.u; if (d > 0.5) d -= 1; else if (d < -0.5) d += 1;
+      const hc = r.crest / 2;
+      const ad = Math.abs(d);
+      if (ad <= hc) y += r.h;                                              // flat crest (deck / peak)
+      else if (d > 0 && d < hc + r.fall) y += r.h * (1 - (d - hc) / r.fall);    // down-face
+      else if (d < 0 && -d < hc + r.rise) y += r.h * (1 - (-d - hc) / r.rise);  // up-face
     }
     return y;
   };
-  return fromParametric(xz, elev, 0.0);
+  return fromParametric(xz, elev, 0.0, bank);
 }
 
 /** Build the centerline for a track def's shape. Oval is the verbatim original. */

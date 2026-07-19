@@ -39,6 +39,8 @@ export class QualityManager {
   private readonly baseScale: number;
 
   private _tier = 0;
+  private _locked = false; // manual tier pick from the pause menu — the FPS controller stands down
+  private onTier: ((tier: number) => void) | null = null; // fires after every applied tier change
   // Controller timers (seconds).
   private accum = 0;     // time since the last FPS sample
   private lowFor = 0;    // sustained time the FPS has been below the floor
@@ -73,6 +75,7 @@ export class QualityManager {
     this.pipeline.bloomEnabled = t.bloom;
     this.pipeline.sharpenEnabled = t.sharpen;
     this._tier = tierIndex;
+    this.onTier?.(tierIndex);
   }
 
   /** Force a tier (test/override hook); resets the controller timers. */
@@ -84,12 +87,37 @@ export class QualityManager {
     this.cooldown = 0;
   }
 
+  /** Manual quality pick (pause menu): pin this tier — the FPS controller stops adjusting. */
+  lockTier(n: number): void {
+    this.setTier(n);
+    this._locked = true;
+  }
+
+  /** Return to automatic FPS-driven tiering. */
+  unlock(): void {
+    this._locked = false;
+    this.setTier(this._tier); // re-arm the controller timers from the current rung
+  }
+
+  /** True while a manual (pause-menu) tier pick is pinned. */
+  get locked(): boolean {
+    return this._locked;
+  }
+
+  /** Register a hook fired after every applied tier change (e.g. gate Ultra-only effects
+   *  like motion blur). Fired immediately with the current tier on registration. */
+  setTierCallback(cb: (tier: number) => void): void {
+    this.onTier = cb;
+    cb(this._tier);
+  }
+
   /**
    * Tick the controller. Call EVERY frame with the frame delta in ms. Pass
    * `fpsOverride` to drive it deterministically in tests; otherwise it reads
    * `engine.getFps()`. Evaluates at most every 0.5s.
    */
   update(dtMs: number, fpsOverride?: number): void {
+    if (this._locked) return; // manual pause-menu pick pinned — controller stands down
     let dt = dtMs / 1000;
     if (dt <= 0) return;
     if (dt > 0.1) dt = 0.1; // clamp big stalls so one hitch can't skew the timers

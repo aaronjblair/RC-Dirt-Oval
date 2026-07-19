@@ -36,7 +36,7 @@ export const CAR_CLASSES: Record<CarClassId, CarClassDef> = {
   },
   latemodel: {
     id: "latemodel", // id kept as "latemodel" so existing class/career saves survive the rename
-    label: "Dirt Sport Mod",
+    label: "Sport Mod",
     subtitle: "IMCA-style open-wheel modified — exposed front end, big slab sides",
     build: createLateModel,
     config: LATE_MODEL_CONFIG,

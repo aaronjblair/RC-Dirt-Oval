@@ -46,11 +46,11 @@ export const DEFAULT_CONFIG: VehicleConfig = {
   wheelRadius: 0.28,
   suspStiffness: 70,
   suspDamping: 6.5,
-  tireGrip: 1.7,
-  corneringStiffness: 9,
+  tireGrip: 1.8,
+  corneringStiffness: 9.6,
   rollResist: 0.85,
-  engineForce: 19.55, // sprint baseline — top speed is engineForce/rollResist (15% faster than the old 17)
-  brakeForce: 22,
+  engineForce: 24.5, // sprint baseline — top speed is engineForce/rollResist (outdoor-track speed bump, was 19.55)
+  brakeForce: 25,
   maxSteer: 0.55,
   steerSpeedFalloff: 0.05,
   downforce: 0.015,
@@ -85,6 +85,9 @@ export class RaycastVehicle {
   private vUp = 0; // vertical velocity when airborne
   private prevGroundY = 0; // ground height under the car last frame (ramp climb-rate → real jump launch)
   private climbRate = 0;   // vertical speed of the surface while climbing a ramp (u/s)
+  private heldClimb = 0;   // peak recent climbRate (decays) so a flat tabletop crest still launches
+  private airPitch = 0; // chassis pitch while airborne — nose follows the jump arc (up climbing, down falling)
+  private landSquat = 0; // brief suspension compression on a clean jump landing (decays to 0)
   private pitch = 0; // visual chassis pitch (squat under power / dive under brakes)
   private rolling = false; // mid-tumble after a hard hit
   private rollTimer = 0; // seconds left in the active tumble
@@ -260,6 +263,7 @@ export class RaycastVehicle {
     this.vLat = 0;
     this.vUp = 0;
     this.climbRate = 0;
+    this.heldClimb = 0;
     // R bails the player out of a flip without waiting for a marshal
     this.stuck = false;
     this.rolling = false;
@@ -365,6 +369,9 @@ export class RaycastVehicle {
       if (onGround) {
         // how fast the surface is RISING under us — a ramp climb stores upward speed
         this.climbRate = (center.y - this.prevGroundY) / Math.max(dt, 1e-4);
+        // hold the peak recent climb (decaying) so a brief flat tabletop crest doesn't
+        // zero it before the far lip — flat tracks keep climbRate≈0 so this stays 0 (no-op)
+        this.heldClimb = Math.max(this.climbRate, this.heldClimb - 6 * dt);
         this.airborne = false;
         this.vUp = 0;
         this.pos.y += (targetY - this.pos.y) * Math.min(1, dt * 12); // soft suspension settle
@@ -372,7 +379,8 @@ export class RaycastVehicle {
         // we're above the surface — if we just rolled off a rising ramp crest, convert the
         // built-up climb speed into a genuine launch (a parabola), not a dribble off the lip.
         // On flat tracks (oval) the car never leaves the ground here, so this never fires.
-        if (!wasAir && this.climbRate > 1.5) this.vUp = Math.min(this.climbRate, 9);
+        // Bigger/steeper ramps at speed store more climb → more air; small whoops stay low.
+        if (!wasAir && this.heldClimb > 1.5) this.vUp = Math.min(this.heldClimb, 16);
         this.airborne = true;
       }
       // gravity component along the banked surface pulls the car — only while grounded
@@ -393,7 +401,7 @@ export class RaycastVehicle {
       if (center.hit && this.pos.y < center.y + c.wheelRadius) {
         this.pos.y = center.y + c.wheelRadius;
         this.airborne = false;
-        this.climbRate = 0; // landed — clear stored climb so it can't re-launch
+        this.climbRate = 0; this.heldClimb = 0; // landed — clear stored climb so it can't re-launch
         // mid-tumble, the body bounces off the dirt and sheds angular speed on each hit
         if (this.rollTimer > 0 && this.wasAirborne && this.vUp < -1) {
           this.vUp = -this.vUp * 0.4; // small bounce back up (restitution)
@@ -402,6 +410,11 @@ export class RaycastVehicle {
           this.yawWobSpeed *= 0.65;
           this.vLong *= 0.6; this.vLat *= 0.6; // scrub forward/lateral speed on impact
         } else {
+          // clean jump landing — FORGIVING: soak the impact into a brief suspension squat
+          // plus a small speed scrub on a big drop. Never a tumble (the player wants forgiving).
+          const impact = Math.max(0, -this.vUp);
+          this.landSquat = Math.min(0.13, this.landSquat + impact * 0.012);
+          if (impact > 4) { this.vLong *= 0.92; this.vLat *= 0.8; }
           this.vUp = 0;
         }
       }
@@ -450,9 +463,20 @@ export class RaycastVehicle {
     targetPitch = Math.max(-0.09, Math.min(0.05, targetPitch)); // ~5° up under power, ~3° dive on brakes
     this.pitch += (targetPitch - this.pitch) * Math.min(1, dt * 6);
 
+    // --- airborne attitude: the nose follows the jump arc (up while rising, down while falling) ---
+    // On flat tracks the car is never airborne, so airPitch/landSquat stay 0 here (oval byte-identical).
+    if (this.airborne) {
+      const horiz = Math.max(3, Math.abs(this.vLong)); // avoid huge angles when nearly stopped
+      const airTarget = -Math.atan2(this.vUp, horiz) * 0.7; // negative = nose up (matches pitch sign)
+      this.airPitch += (airTarget - this.airPitch) * Math.min(1, dt * 6);
+    } else {
+      this.airPitch += (0 - this.airPitch) * Math.min(1, dt * 8); // settle level once back on the ground
+    }
+    this.landSquat += (0 - this.landSquat) * Math.min(1, dt * 7); // suspension rebound after a landing
+
     // --- compose chassis orientation: yaw + pitch + roll (incl. multi-axis tumble), align up to ground normal ---
     const yawQuat = Quaternion.RotationAxis(UP, this.yaw + this.yawWobAngle);
-    const pitchQuat = Quaternion.RotationAxis(new Vector3(1, 0, 0), this.pitch + this.pitchAngle);
+    const pitchQuat = Quaternion.RotationAxis(new Vector3(1, 0, 0), this.pitch + this.pitchAngle + this.airPitch + this.landSquat);
     const rollQuat = Quaternion.RotationAxis(new Vector3(0, 0, 1), this.rollAngle);
     const align = this.quatFromTo(UP, this.groundNormal);
     align.multiplyToRef(yawQuat.multiply(pitchQuat).multiply(rollQuat), this.chassis.rotationQuaternion!);

@@ -34,7 +34,7 @@ function table(rows: string): string {
 
 const CONTENT =
   `<p style="font-size:14.5px;line-height:1.65;color:${INK};margin:0">` +
-  `<b style="color:${ACCENT}">RCSprint</b> is a sim-leaning 3D recreation of <b>1/10-scale dirt-oval RC sprint car racing</b>, ` +
+  `<b style="color:${ACCENT}">Super Jay RC</b> is a sim-leaning 3D recreation of <b>1/10-scale dirt-oval RC sprint car racing</b>, ` +
   `modeled on the real <b>Team Losi 22S Sprint</b>. You watch from the drivers' stand, wheel a winged sprinter around a ` +
   `banked clay oval, and fight an 8–10-car field across a 15-round championship as the track slicks off and your tires fade.` +
   `</p>` +
@@ -126,7 +126,7 @@ export function openGuide(): void {
   const header =
     `<div style="flex:0 0 auto;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;` +
     `padding:20px 24px 14px;border-bottom:1px solid #232c38;background:linear-gradient(180deg,#121823,${PANEL})">` +
-    `<div><div style="font-size:22px;font-weight:900;letter-spacing:2px;color:${ACCENT}">RCSPRINT</div>` +
+    `<div><div style="font-size:22px;font-weight:900;letter-spacing:2px;color:${ACCENT}">SUPER JAY RC</div>` +
     `<div style="font-size:12px;letter-spacing:2px;color:${MUTED};margin-top:2px">DRIVER'S MANUAL</div></div>` +
     `<button id="guideClose" aria-label="Close" style="flex:0 0 auto;width:34px;height:34px;border:none;border-radius:9px;` +
     `cursor:pointer;background:#26303d;color:${INK};font-size:20px;line-height:1;font-weight:700">&times;</button></div>`;

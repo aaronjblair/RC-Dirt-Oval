@@ -13,11 +13,11 @@ import { PhysicsShapeMesh } from "@babylonjs/core/Physics/v2/physicsShape";
 import { PhysicsMotionType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 import type { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
-import { makeDirtPBR } from "../core/Textures";
+import { makeDirtPBR, makeGrassTexture } from "../core/Textures";
 import { GROUP_GROUND } from "../physics/RaycastVehicle";
 import type { TrackDef } from "./TrackDef";
 import { makeCenterline, type Centerline } from "./centerlines";
-import logoUrl from "../assets/logo.png";
+import logoUrl from "../assets/aztec-speedway.png";
 
 export interface TrackSample {
   pos: Vector3; // centerline (y=0 base)
@@ -74,6 +74,7 @@ export class OvalTrack {
     this.length = this.centerline.length;
     this.startFinishS = this.centerline.startFinishS;
     const oval = (def.shape ?? "oval") === "oval";
+    const offroad = (def.shape ?? "oval") === "offroad";
 
     void plugin;
     this.buildSamples();
@@ -82,10 +83,133 @@ export class OvalTrack {
     if (oval) this.buildInfield();        // convex grass fan + speedway logo — oval only
     if (oval) this.buildWalls(shadow);    // retaining walls/catch-fence self-cross at the figure-8 X — oval only
     if (oval) this.buildBerm();           // banked-turn dirt berm — oval only
+    if (offroad) this.buildOffroadEdges(); // black/yellow pipe boundary hugging both edges — offroad only
+    if (offroad) this.buildStadiumWalls(shadow); // arena perimeter wall ring (with ad boards) — offroad only
     this.buildStartFinish();              // generic (sampleAt at startFinishS) — ALL shapes
-    this.buildGroove();
     this.buildGrooveOverlay();
     if (oval) this.buildBanners();        // outer-fence sponsor banners — oval only
+  }
+
+  /** Max planar radius of the centerline (max |x|,|z| over all samples) — lets scenery
+   *  push background props safely OUTSIDE the actual footprint (the off-road loop winds
+   *  far past the oval's Math.max(L,R) ring). */
+  get outerRadius(): number {
+    let m = 0;
+    for (const s of this.samples) m = Math.max(m, Math.abs(s.pos.x), Math.abs(s.pos.z));
+    return m;
+  }
+
+  /** Per-axis footprint (max |x|, max |z| over the centerline) — the off-road loop is z-stretched,
+   *  so an elliptical perimeter (wall + ringed stands) needs both axes, not a single radius. */
+  get footprint(): { maxX: number; maxZ: number } {
+    let maxX = 0, maxZ = 0;
+    for (const s of this.samples) { maxX = Math.max(maxX, Math.abs(s.pos.x)); maxZ = Math.max(maxZ, Math.abs(s.pos.z)); }
+    return { maxX, maxZ };
+  }
+
+  /** A closed ring of points that FOLLOWS the centerline, offset outward by `off` (planar) at height
+   *  `y`. Arena walls/stands must use this, not an axis-aligned ellipse: the winding off-road loop
+   *  bulges out at the diagonals where an ellipse pinches inward (which would clip the surface). */
+  ringPath(off: number, y = 0): Vector3[] {
+    const path: Vector3[] = [];
+    for (let i = 0; i <= SAMPLES; i++) {
+      const sm = this.samples[i % SAMPLES];
+      const p = sm.pos.add(sm.outward.scale(off));
+      p.y = y;
+      path.push(p);
+    }
+    return path;
+  }
+
+  /**
+   * Off-road track-edge boundary: a continuous black/yellow hazard "pipe" (like the
+   * hose edging on a real RC dirt track) riding both edges of the racing surface, up
+   * and over the tabletop jumps with the surface. Visual only (not collidable) — the
+   * car was never barrier-contained on the off-road loop, and a 480-segment tube
+   * collider would be costly and would foul the ballistic jump arcs.
+   */
+  private buildOffroadEdges() {
+    const W = this.def.width;
+
+    // Solid BLACK corrugated-hose edging (like the drainage pipe lining a real RC dirt track):
+    // a bold, continuous boundary that reads clearly on the tan dirt. Slight plastic sheen
+    // (low roughness) so it doesn't read as a flat ground shadow.
+    const mat = new PBRMaterial("pipeMat", this.scene);
+    mat.albedoColor = new Color3(0.05, 0.05, 0.06);
+    mat.roughness = 0.45; mat.metallic = 0.0;
+    mat.emissiveColor = new Color3(0.015, 0.015, 0.02); // barely lifts it out of pure shadow
+
+    const edge = (offset: number) => {
+      const path: Vector3[] = [];
+      for (let i = 0; i <= SAMPLES; i++) {
+        const sm = this.samples[i % SAMPLES];
+        const lift = offset > 0 ? W * Math.tan(sm.bank) : 0; // outer edge rides the bank (0 on offroad)
+        const p = sm.pos.add(sm.outward.scale(offset));
+        p.y = sm.pos.y + lift + 0.2; // pipe centre sits just proud of the surface
+        path.push(p);
+      }
+      const tube = MeshBuilder.CreateTube(
+        "pipeEdge", { path, radius: 0.28, tessellation: 8, cap: Mesh.NO_CAP }, this.scene
+      );
+      tube.material = mat;
+      tube.receiveShadows = true;
+      tube.isPickable = false;
+      tube.freezeWorldMatrix();
+    };
+    edge(-W / 2);
+    edge(W / 2);
+  }
+
+  /**
+   * Stadium arena enclosure (off-road only): an elliptical perimeter WALL ring around the
+   * whole loop — a low concrete base wall topped by a bright advertising-board band, the
+   * way a supercross arena floor is walled off from the stands. Visual only (car containment
+   * stays positional); the grandstands ring just outside this in Scenery.
+   */
+  private buildStadiumWalls(shadow: ShadowGenerator | null) {
+    // A TALL trackside arena barrier that FOLLOWS the winding loop just outside the racing surface
+    // (centerline + outward·(W/2+margin)), with the grandstand bowl rising right behind it (Scenery).
+    // Following the centerline keeps a uniform run-off all the way round — an axis-aligned ellipse
+    // pinches at the diagonals and would cut through the surface on this wobbly loop.
+    const wallOff = this.def.width / 2 + 3; // ~3u run-off beyond the surface outer edge
+
+    // --- ad-board texture for the upper band ---
+    const dt = new DynamicTexture("arenaAdTex", { width: 1024, height: 128 }, this.scene, true);
+    const ctx = dt.getContext() as CanvasRenderingContext2D;
+    const names = ["LOSI", "SPEKTRUM", "TLR", "HOOSIER", "DIRT NATION", "PRO-LINE", "TEAM JAY", "22S"];
+    const cols = ["#c0392b", "#2471a3", "#f1c40f", "#27ae60", "#8e44ad", "#d35400", "#16a085", "#34495e"];
+    const bw = 1024 / names.length;
+    for (let i = 0; i < names.length; i++) {
+      ctx.fillStyle = cols[i]; ctx.fillRect(i * bw, 0, bw, 128);
+      ctx.fillStyle = "#fff"; ctx.font = "bold 44px Arial Black, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(names[i], i * bw + bw / 2, 70);
+    }
+    dt.update();
+    dt.wrapU = Texture.WRAP_ADDRESSMODE;
+    dt.uScale = Math.round(this.length / 6);
+    dt.anisotropicFilteringLevel = 16;
+
+    const wallMat = new PBRMaterial("arenaWallMat", this.scene);
+    wallMat.albedoColor = new Color3(0.78, 0.78, 0.8);
+    wallMat.roughness = 0.7; wallMat.metallic = 0;
+    const adMat = new PBRMaterial("arenaAdMat", this.scene);
+    adMat.albedoTexture = dt;
+    adMat.emissiveTexture = dt; adMat.emissiveColor = new Color3(0.22, 0.22, 0.22);
+    adMat.roughness = 0.65; adMat.metallic = 0;
+
+    const ring = (yBase: number, height: number, mat: PBRMaterial) => {
+      const base = this.ringPath(wallOff, yBase);              // follows the centerline at a fixed run-off
+      const top = this.ringPath(wallOff, yBase + height);
+      const ribbon = MeshBuilder.CreateRibbon("arenaWall", { pathArray: [base, top], closeArray: true, sideOrientation: Mesh.DOUBLESIDE }, this.scene);
+      ribbon.material = mat;
+      ribbon.receiveShadows = true;
+      ribbon.isPickable = false;
+      ribbon.freezeWorldMatrix();
+      if (shadow) shadow.addShadowCaster(ribbon);
+    };
+    ring(0, 3.5, wallMat);   // tall concrete base wall (trackside arena barrier)
+    ring(3.5, 2.5, adMat);   // advertising-board band on top → ~6u total
   }
 
   /** Trackside sponsor banners on the outer fence. */
@@ -124,50 +248,11 @@ export class OvalTrack {
     banner.freezeWorldMatrix();
   }
 
-  /**
-   * The racing surface: contiguous ribbons across the full width, hugging the
-   * banking so they sit flush. All one uniform packed-dirt brown (no visible
-   * groove/cushion shading). Grip on each line still evolves over a race in
-   * SurfaceModel — bottom early, cushion late — it just isn't painted on.
-   */
-  private buildGroove() {
-    const W = this.def.width;
-    const band = (name: string, center: number, half: number, col: Color3, rough: number) => {
-      const inner: Vector3[] = [];
-      const outer: Vector3[] = [];
-      for (let i = 0; i <= SAMPLES; i++) {
-        const sm = this.samples[i % SAMPLES];
-        const lift = W * Math.tan(sm.bank); // surface rises linearly across the width on a bank
-        const yAt = (lat: number) => sm.pos.y + lift * (0.5 + lat / W) + 0.02;
-        const a = sm.pos.add(sm.outward.scale(center - half)); a.y = yAt(center - half);
-        const b = sm.pos.add(sm.outward.scale(center + half)); b.y = yAt(center + half);
-        inner.push(a); outer.push(b);
-      }
-      const ribbon = MeshBuilder.CreateRibbon(name, { pathArray: [inner, outer], closePath: true }, this.scene);
-      const mat = new PBRMaterial(name + "Mat", this.scene);
-      mat.albedoColor = col;
-      mat.roughness = rough;
-      mat.metallic = 0;
-      mat.zOffset = -4; // sit cleanly on top of the track surface
-      ribbon.material = mat;
-      ribbon.receiveShadows = true;
-      ribbon.isPickable = false;
-      ribbon.freezeWorldMatrix();
-    };
-    // The whole racing oval is UNIFORM packed-dirt brown — no painted multi-shade
-    // groove bands. Contiguous bands still tile the full width (so no bare base strip
-    // shows), but all share one earthy brown derived from the track's dirt colour
-    // (pulled toward brown so even red-clay rounds read as plain dirt). Grip still
-    // evolves invisibly per-line in SurfaceModel.
-    const dirt = this.def.dirtColor;
-    const brown = new Color3(dirt.r * 0.8, dirt.g * 0.95, dirt.b * 0.95);
-    const ROUGH = 0.9; // hard-packed dirt
-    band("apron", -W * 0.42, W * 0.08, brown, ROUGH);
-    band("groove", -W * 0.17, W * 0.17, brown, ROUGH);
-    band("slick", W * 0.1, W * 0.1, brown, ROUGH);
-    band("cushion", W * 0.31, W * 0.11, brown, ROUGH);
-    band("marbles", W * 0.46, W * 0.04, brown, ROUGH);
-  }
+  // NOTE: the old flat-color groove/apron/cushion "band" ribbons are GONE — they sat on
+  // top of the photo-textured clay surface and flattened the whole track to untextured
+  // paint. The textured buildSurface material now shows directly: still one uniform clay
+  // tone (no painted multi-shade bands), but with real dirt texture + normal relief.
+  // Grip per line still evolves invisibly in SurfaceModel.
 
   /**
    * Transparent darkening overlay that paints in the racing groove as cars run laps.
@@ -324,13 +409,19 @@ export class OvalTrack {
     vd.normals = normals;
     vd.uvs = uvs;
     vd.applyToMesh(mesh);
+    // Off-road tabletop jumps must read as HARD-EDGED tables: smooth (averaged) normals blend
+    // across the ramp creases and make the trapezoid look like a rounded swell. Flat shading
+    // gives each face its own normal, so the up-face/flat-deck/down-face meet at crisp creases.
+    // (Oval/figure-8 keep smooth shading — their surface is continuous with no creases.)
+    if ((this.def.shape ?? "oval") === "offroad") mesh.convertToFlatShadedMesh();
 
     // packed red-clay racing surface (warm, saturated dirt — not gray concrete),
     // tied to this track's dirt colour with finer tiling so it reads as dirt
     const d = this.def.dirtColor;
     const clay = new Color3(d.r * 1.3, d.g * 0.85, d.b * 0.62); // warm, saturated red clay
-    const mat = makeDirtPBR(this.scene, "trackMat", 4, Math.max(8, Math.round(this.length / 14)), clay);
-    mat.roughness = 0.9;
+    // lateral tiling scales with width so a wider track doesn't stretch the clay texture
+    const mat = makeDirtPBR(this.scene, "trackMat", Math.max(4, Math.round(W / 2.5)), Math.max(8, Math.round(this.length / 14)), clay);
+    mat.roughness = 0.8; // hard-PACKED clay carries a faint sheen under the lights (loose dirt would be ~0.95)
     mesh.material = mat;
     mesh.receiveShadows = true;
     mesh.isPickable = false;
@@ -366,7 +457,7 @@ export class OvalTrack {
    */
   private buildInfield() {
     const W = this.def.width;
-    const y = -0.03; // just above the dirt base (-0.05), just below the track inner edge (~0)
+    const y = -0.02; // clearly above the dirt base (-0.05) so it can't bleed through, below the track inner edge (~0)
 
     // Triangle-fan the inner-edge loop into a filled grass surface (the infield is convex).
     const positions: number[] = [0, y, 0];
@@ -391,8 +482,16 @@ export class OvalTrack {
     vd.normals = normals;
     vd.uvs = uvs;
     vd.applyToMesh(grass);
-    const gmat = makeDirtPBR(this.scene, "infieldGrassMat", 26, 26, new Color3(0.34, 0.52, 0.22)); // mowed grass green
+    // REAL turf: the procedural mowed-grass canvas (green base + mow-tone patches + blade
+    // speckle + dry spots), NOT the dirt photo tinted green — that multiply always read as
+    // muddy olive dirt. No dirt normal/AO either, so it stops wearing clay-clod relief.
+    const gmat = new PBRMaterial("infieldGrassMat", this.scene);
+    gmat.albedoTexture = makeGrassTexture(this.scene, 8); // fan UVs are world-scaled; ~one repeat per 2u
+    gmat.albedoColor = new Color3(1.2, 1.3, 1.15); // lift so the turf stays GREEN under scene haze/tonemap
+    gmat.metallic = 0;
     gmat.roughness = 0.95;
+    gmat.zOffset = -2; // belt-and-suspenders over the dirt ground below
+    gmat.backFaceCulling = false; // the fan's winding reads as a backface from above — draw both sides
     grass.material = gmat;
     grass.receiveShadows = true;
     grass.isPickable = false;
@@ -417,7 +516,7 @@ export class OvalTrack {
 
     // Fill most of the infield: the wordmark's long axis runs along the straights (z),
     // where there's far more room than across the short (x) axis. Size to whichever fits.
-    const ASPECT = 2.85; // logo width : height
+    const ASPECT = 1500 / 1159; // logo width : height (Aztec Speedway crossed-flags mark)
     const innerLen = this.def.straightLength + 2 * R - W; // infield length along the straights
     const innerWid = 2 * R - W; // infield width across
     const lw = Math.min(innerLen * 0.74, innerWid * 0.78 * ASPECT); // long axis, with a grass margin
@@ -704,11 +803,12 @@ export class OvalTrack {
     return this.samples[i];
   }
 
-  /** Grid start position for car index (staggered double-file behind the start/finish line). */
+  /** Grid start position for car index (staggered double-file WELL behind the start/finish line —
+   *  ~30% of a lap back, so the ROLLING START has a real AI-paced run to the green). */
   gridPose(index: number): { pos: Vector3; yaw: number } {
     const row = Math.floor(index / 2);
     const col = index % 2;
-    const s = (this.startFinishS - 6 - row * 4 + this.length) % this.length;
+    const s = (this.startFinishS - this.length * 0.3 - row * 4 + this.length) % this.length;
     const sm = this.sampleAt(s);
     const lateralOff = col === 0 ? -this.def.width * 0.22 : this.def.width * 0.22;
     const pos = sm.pos.add(sm.outward.scale(lateralOff));

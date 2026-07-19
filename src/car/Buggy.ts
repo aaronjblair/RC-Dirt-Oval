@@ -39,11 +39,11 @@ export const BUGGY_CONFIG: VehicleConfig = {
   wheelRadius: 0.3,
   suspStiffness: 60,
   suspDamping: 6.8,
-  tireGrip: 1.9,       // grippy knobbies on dirt
-  corneringStiffness: 9.5,
+  tireGrip: 2.0,       // grippy knobbies on dirt
+  corneringStiffness: 10,
   rollResist: 0.9,
-  engineForce: 17.5,   // brisk — between sprint (19.55) and late model (15)
-  brakeForce: 21,
+  engineForce: 22,     // brisk — between the sprint and sport-mod baselines (outdoor speed bump)
+  brakeForce: 24,
   maxSteer: 0.58,
   steerSpeedFalloff: 0.05,
   downforce: 0.006,    // a touch of rear-wing grip, far less than the sprint car
@@ -52,7 +52,7 @@ export const BUGGY_CONFIG: VehicleConfig = {
 };
 
 /** Cab-forward shell side livery: car-color base, big number, white shoulder flash, name. */
-function buggyLiveryDraw(color: Color3, num: number, name?: string, redOutline = false): Draw {
+function buggyLiveryDraw(color: Color3, num: number | string, name?: string, redOutline = false): Draw {
   return (ctx, w, h) => {
     ctx.fillStyle = rgb(color); ctx.fillRect(0, 0, w, h);
     // white shoulder flash sweeping up to the rear

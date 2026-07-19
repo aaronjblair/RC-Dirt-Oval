@@ -67,7 +67,7 @@ export function generateCareer(): TrackDef[] {
       name: NAMES[d - 1],
       cornerRadius: Math.round(lerp(24, 18, t)),
       straightLength: Math.round(lerp(40, 72, t)),
-      width: +lerp(10, 7, t).toFixed(1),
+      width: +lerp(12, 8.4, t).toFixed(1), // 20% wider than the original 10→7 season taper
       banking: BANKING[d - 1],
 
       baseGrip: +lerp(1.85, 1.45, t).toFixed(2),

@@ -303,7 +303,7 @@ export function buildWheel(scene: Scene, name: string, radius: number, width: nu
     const ring = MeshBuilder.CreateTorus(name + "_blr" + sx, { diameter: ri * 1.92, thickness: ri * 0.16, tessellation: 20 }, scene);
     ring.rotation.z = Math.PI / 2; ring.position.x = sx * (hw - 0.006); ring.parent = hub; ring.material = hubMat;
     const bolts = 8, br = ri * 0.86;
-    const boltSrc = MeshBuilder.CreateCylinder(name + "_bl" + sx, { diameter: ri * 0.1, height: 0.02, tessellation: 5 }, scene);
+    const boltSrc = MeshBuilder.CreateCylinder(name + "_bl" + sx, { diameter: ri * 0.1, height: 0.02, tessellation: 10 }, scene);
     boltSrc.parent = hub; boltSrc.material = hubMat; boltSrc.isVisible = false;
     for (let b = 0; b < bolts; b++) {
       const ba = (b / bolts) * Math.PI * 2;

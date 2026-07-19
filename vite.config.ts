@@ -14,8 +14,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["apple-touch-icon-180.png"],
       manifest: {
-        name: "RC Dirt Oval",
-        short_name: "RC Dirt Oval",
+        name: "Super Jay RC",
+        short_name: "Super Jay RC",
         description: "1/10 dirt-oval RC sprint car racing",
         display: "standalone",
         orientation: "landscape",

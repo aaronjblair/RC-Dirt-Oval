@@ -256,18 +256,23 @@ export function createLateModel(
   capEnd(hoodProfiles[0], "lmcapNose", mPaint); // the flat vertical nose panel
 
   // round AIR CLEANER poking through the hood (big-engine modified cue)
-  add(MeshBuilder.CreateCylinder("lmair", { diameter: 0.2, height: 0.08, tessellation: 14 }, scene), mBlack, root).position.set(0, 0.1, 0.66);
-  add(MeshBuilder.CreateCylinder("lmairTop", { diameter: 0.21, height: 0.016, tessellation: 14 }, scene), mChrome, root).position.set(0, 0.145, 0.66);
+  add(MeshBuilder.CreateCylinder("lmair", { diameter: 0.2, height: 0.08, tessellation: 28 }, scene), mBlack, root).position.set(0, 0.1, 0.66);
+  add(MeshBuilder.CreateCylinder("lmairTop", { diameter: 0.21, height: 0.016, tessellation: 28 }, scene), mChrome, root).position.set(0, 0.145, 0.66);
 
   // ---- EXPOSED FRONT SUSPENSION: lower/upper arms out to each front hub + an angled coilover —
   //      the open-wheel front end that defines the modified. ----
   const mSpring = flatMat(scene, "lmsprg", new Color3(0.82, 0.2, 0.12), 0.45, 0.2);
   for (const sx of [1, -1]) {
-    add(MeshBuilder.CreateBox("lmarmL" + sx, { width: 0.42, height: 0.03, depth: 0.07 }, scene), mBlack, root).position.set(0.48 * sx, -0.16, 0.8);
-    add(MeshBuilder.CreateBox("lmarmU" + sx, { width: 0.32, height: 0.025, depth: 0.05 }, scene), mBlack, root).position.set(0.44 * sx, -0.03, 0.82);
-    const shock = add(MeshBuilder.CreateCylinder("lmshock" + sx, { diameter: 0.032, height: 0.3, tessellation: 8 }, scene), mAlu, root);
+    // round tubular A-arms (the old flat boxes read as cardboard tabs next to the tube bumpers)
+    const armL = add(MeshBuilder.CreateCylinder("lmarmL" + sx, { diameter: 0.036, height: 0.42, tessellation: 12 }, scene), mBlack, root);
+    armL.position.set(0.48 * sx, -0.16, 0.8); armL.rotation.z = Math.PI / 2;
+    const armL2 = add(MeshBuilder.CreateCylinder("lmarmL2" + sx, { diameter: 0.03, height: 0.4, tessellation: 12 }, scene), mBlack, root);
+    armL2.position.set(0.47 * sx, -0.16, 0.86); armL2.rotation.z = Math.PI / 2; armL2.rotation.y = sx * 0.18;
+    const armU = add(MeshBuilder.CreateCylinder("lmarmU" + sx, { diameter: 0.028, height: 0.32, tessellation: 12 }, scene), mBlack, root);
+    armU.position.set(0.44 * sx, -0.03, 0.82); armU.rotation.z = Math.PI / 2;
+    const shock = add(MeshBuilder.CreateCylinder("lmshock" + sx, { diameter: 0.032, height: 0.3, tessellation: 14 }, scene), mAlu, root);
     shock.position.set(0.5 * sx, -0.02, 0.76); shock.rotation.z = sx * 0.45;
-    const spring = add(MeshBuilder.CreateCylinder("lmspringF" + sx, { diameter: 0.07, height: 0.16, tessellation: 10 }, scene), mSpring, root);
+    const spring = add(MeshBuilder.CreateCylinder("lmspringF" + sx, { diameter: 0.07, height: 0.16, tessellation: 14 }, scene), mSpring, root);
     spring.position.set(0.53 * sx, -0.06, 0.76); spring.rotation.z = sx * 0.45;
   }
 
@@ -276,13 +281,13 @@ export function createLateModel(
     new Vector3(-0.48, -0.1, 1.3), new Vector3(-0.34, -0.1, 1.46),
     new Vector3(0.34, -0.1, 1.46), new Vector3(0.48, -0.1, 1.3),
   ];
-  add(MeshBuilder.CreateTube("lmbumpF", { path: bumperPath, radius: 0.024, tessellation: 8 }, scene), mBlack, root);
-  add(MeshBuilder.CreateTube("lmbumpF2", { path: bumperPath.map((p) => new Vector3(p.x * 0.92, p.y + 0.09, p.z - 0.04)), radius: 0.02, tessellation: 8 }, scene), mBlack, root);
+  add(MeshBuilder.CreateTube("lmbumpF", { path: bumperPath, radius: 0.024, tessellation: 14 }, scene), mBlack, root);
+  add(MeshBuilder.CreateTube("lmbumpF2", { path: bumperPath.map((p) => new Vector3(p.x * 0.92, p.y + 0.09, p.z - 0.04)), radius: 0.02, tessellation: 14 }, scene), mBlack, root);
   const rearPath = [
     new Vector3(-0.6, -0.1, -1.3), new Vector3(-0.45, -0.1, -1.42),
     new Vector3(0.45, -0.1, -1.42), new Vector3(0.6, -0.1, -1.3),
   ];
-  add(MeshBuilder.CreateTube("lmbumpR", { path: rearPath, radius: 0.024, tessellation: 8 }, scene), mBlack, root);
+  add(MeshBuilder.CreateTube("lmbumpR", { path: rearPath, radius: 0.024, tessellation: 14 }, scene), mBlack, root);
 
   // ---- DOOR LIVERY on each slab side. The hero #32 gets the reference orange scheme (big
   //      silver 32 + "SUPER JAY" + the J logo sticker on the quarter); the 11X gets its bespoke
@@ -342,8 +347,9 @@ export function createLateModel(
   const backlight = add(MeshBuilder.CreateBox("lmbl", { width: 0.96, height: 0.13, depth: 0.03 }, scene), mGlass, root);
   backlight.position.set(0, 0.25, CAB_Z - 0.31); backlight.rotation.x = 0.62;
   for (const sx of [1, -1]) {
-    const sw = add(MeshBuilder.CreateBox("lmsw" + sx, { width: 0.03, height: 0.10, depth: 0.4 }, scene), mGlass, root);
-    sw.position.set(0.79 * sx, 0.245, CAB_Z);
+    // proper-sized side window (the old 0.10×0.4 strip read as a dark sticker, not glass)
+    const sw = add(MeshBuilder.CreateBox("lmsw" + sx, { width: 0.03, height: 0.14, depth: 0.54 }, scene), mGlass, root);
+    sw.position.set(0.79 * sx, 0.24, CAB_Z);
   }
   // thin SUN VISOR strip along the roof's front edge above the windshield (real-world cue)
   const visor = add(MeshBuilder.CreateBox("lmvisor", { width: 1.2, height: 0.018, depth: 0.07 }, scene), mBlack, root);
@@ -356,7 +362,7 @@ export function createLateModel(
     rp.position.set(0, 0.345, CAB_Z - 0.02);
   }
   // aluminium dash bar (a hint of the cage low in the cabin)
-  const dashBar = add(MeshBuilder.CreateCylinder("lmdashbar", { diameter: 0.02, height: 1.1, tessellation: 8 }, scene), mAlu, root);
+  const dashBar = add(MeshBuilder.CreateCylinder("lmdashbar", { diameter: 0.02, height: 1.1, tessellation: 12 }, scene), mAlu, root);
   dashBar.rotation.z = Math.PI / 2; dashBar.position.set(0, 0.17, CAB_Z + 0.2);
 
   // ===================================================================================
@@ -432,11 +438,11 @@ export function createLateModel(
     // retainer ring. All well inside the tread radius (no Mickey-Mouse shoulders).
     const lugR = L.r * 0.34, hww = L.w / 2;
     for (const sx of [1, -1]) {
-      const bead = MeshBuilder.CreateTorus("lmbead" + i + sx, { diameter: L.r * 0.92, thickness: 0.02, tessellation: 18 }, scene);
+      const bead = MeshBuilder.CreateTorus("lmbead" + i + sx, { diameter: L.r * 0.92, thickness: 0.02, tessellation: 24 }, scene);
       bead.rotation.z = Math.PI / 2; bead.position.x = sx * (hww + 0.006); bead.parent = hub; bead.material = mRim;
       for (let b = 0; b < 6; b++) {
         const a = (b / 6) * Math.PI * 2;
-        const lug = MeshBuilder.CreateCylinder("lmlug" + i + sx + b, { diameter: 0.026, height: 0.02, tessellation: 6 }, scene);
+        const lug = MeshBuilder.CreateCylinder("lmlug" + i + sx + b, { diameter: 0.026, height: 0.02, tessellation: 12 }, scene);
         lug.rotation.z = Math.PI / 2;
         lug.position.set(sx * (hww + 0.014), Math.sin(a) * lugR, Math.cos(a) * lugR);
         lug.parent = hub; lug.material = mChrome;

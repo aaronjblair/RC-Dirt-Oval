@@ -130,6 +130,7 @@ export function setupEnvironment(scene: Scene, camera: Camera, night = false, hi
     // dark dirt (no floating); QualityManager scales totalStrength/samples at runtime.
     ssao.totalStrength = night ? 1.5 : 1.0;
     ssao.base = night ? 0.12 : 0.2; // less ambient fill → deeper crevices
+    ssao.epsilon = 0.02; // kills false self-occlusion blotches on flat dirt at low sample counts
     ssao.expensiveBlur = highQuality; // cleaner edges on desktop
     ssao.samples = highQuality ? 16 : 8; // smoother occlusion on desktop; phones keep 8
     ssao.maxZ = 90;
@@ -192,6 +193,34 @@ function addNightSky(scene: Scene): void {
   dome.material = starMat;
   dome.applyFog = false;
   dome.isPickable = false;
+
+  // --- Horizon light-pollution glow: night photos of lit tracks show a faint warm-violet
+  //     band hugging the horizon (stadium floods scattering in haze) while the zenith stays
+  //     near-black. A short open cylinder ringing the scene with a vertical fade sells it. ---
+  const glowTex = new DynamicTexture("horizonGlowTex", { width: 8, height: 128 }, scene, false);
+  const gc = glowTex.getContext() as CanvasRenderingContext2D;
+  const grad = gc.createLinearGradient(0, 128, 0, 0); // bottom (horizon) → top
+  grad.addColorStop(0.0, "rgba(74,53,80,0.5)");   // #4A3550 warm-violet at the horizon
+  grad.addColorStop(0.45, "rgba(58,46,62,0.22)"); // #3A2E3E fading
+  grad.addColorStop(1.0, "rgba(20,22,32,0)");     // gone well below the star field
+  gc.fillStyle = grad;
+  gc.fillRect(0, 0, 8, 128);
+  glowTex.update();
+  glowTex.hasAlpha = true;
+  const glowMat = new StandardMaterial("horizonGlowMat", scene);
+  glowMat.diffuseTexture = glowTex;
+  glowMat.emissiveTexture = glowTex;
+  glowMat.emissiveColor = new Color3(0.9, 0.8, 1.0);
+  glowMat.disableLighting = true;
+  glowMat.useAlphaFromDiffuseTexture = true;
+  glowMat.backFaceCulling = false; // seen from inside the ring
+  const glowRing = MeshBuilder.CreateCylinder("horizonGlow", {
+    diameter: 1100, height: 150, cap: Mesh.NO_CAP, tessellation: 48,
+  }, scene);
+  glowRing.position.y = 55; // band bottom sits just below eye level, fading out by ~130u up
+  glowRing.material = glowMat;
+  glowRing.applyFog = false;
+  glowRing.isPickable = false;
 
   // --- Crescent moon: a filled disc with an offset circle punched out, billboarded ---
   const moonTex = new DynamicTexture("moonTex", { width: 256, height: 256 }, scene, true);

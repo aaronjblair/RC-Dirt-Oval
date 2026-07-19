@@ -186,10 +186,6 @@ export const Screens = {
     let selMuted = opts.muted;
     let selAuto = opts.autoThrottle;
     const pick = "text-align:left;margin-top:8px;padding:10px 12px";
-    const classBtns = opts.classes.map((c) =>
-      `<button class="suClass" data-id="${c.id}" style="${BTN2};${pick}">
-         <div style="font-size:14px;font-weight:800;color:#ffd34d">${c.label}</div>
-         <div style="font-size:11px;color:#c8d0da;margin-top:2px">${c.subtitle}</div></button>`).join("");
     const modes: { id: "career" | "arcade"; label: string; sub: string }[] = [
       { id: "career", label: "CAREER / SIM", sub: "15-track championship, evolving grip, always advance." },
       { id: "arcade", label: "ARCADE (RC Pro-Am)", sub: "Overhead view, dodge the slicks, top-3 or burn a continue." },
@@ -198,27 +194,29 @@ export const Screens = {
       `<button class="suMode" data-id="${m.id}" style="${BTN2};${pick}">
          <div style="font-size:14px;font-weight:800;color:#ffd34d">${m.label}</div>
          <div style="font-size:11px;color:#c8d0da;margin-top:2px">${m.sub}</div></button>`).join("");
-    // Single-track game: only the career dirt oval is offered (figure-8/off-road defs stay in code).
-    const tracks: { id: "career" | "figure8" | "offroad"; label: string; sub: string }[] = [
-      { id: "career", label: "DIRT OVAL", sub: "The 15-round championship on the banked dirt oval." },
-    ];
-    const trackBtns = tracks.map((t) =>
-      `<button class="suTrack" data-id="${t.id}" style="${BTN2};${pick}">
-         <div style="font-size:14px;font-weight:800;color:#ffd34d">${t.label}</div>
-         <div style="font-size:11px;color:#c8d0da;margin-top:2px">${t.sub}</div></button>`).join("");
+    // Single class + single track: shown as one compact info line instead of one-option pickers,
+    // so the menu stays short enough that START RACE is on screen without scrolling.
+    const classLabel = opts.classes[0]?.label ?? "Sport Mod";
+    // START sits in a sticky footer pinned to the bottom of the (scrollable) card — it must ALWAYS
+    // be visible, whatever the screen height or how far the panel is scrolled.
+    const stickyFoot =
+      "position:sticky;bottom:-18px;background:rgba(12,16,22,0.97);padding:10px 0 4px;margin-top:12px;" +
+      "border-top:1px solid #232c38;z-index:1";
     const p = panel(
       `<div style="font-size:12px;color:#9aa6b3;letter-spacing:1px">RACE SETUP &middot; ROUND ${opts.round + 1}/${opts.total}</div>
-       <div style="font-size:22px;font-weight:800;color:#ffd34d;margin:2px 0 8px">${opts.def.name}</div>
+       <div style="font-size:22px;font-weight:800;color:#ffd34d;margin:2px 0 6px">${opts.def.name}</div>
+       <div style="font-size:12px;color:#c8d0da;margin-bottom:10px">
+         <b style="color:#ffd34d">${classLabel}</b> &middot; Dirt Oval</div>
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px">DRIVER NAME</div>
        <input id="suName" type="text" maxlength="22" autocomplete="off"
          style="display:block;width:100%;box-sizing:border-box;padding:10px;margin-top:4px;border:1px solid #2a3340;border-radius:9px;background:#0c0f14;color:#eef2f7;font-size:15px;font-family:inherit;outline:none" />
-       <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:12px">CLASS</div>${classBtns}
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:12px">MODE</div>${modeBtns}
-       <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:12px">TRACK</div>${trackBtns}
        <button id="suTime" style="${BTN2};margin-top:12px"></button>
        <button id="suSound" style="${BTN2};margin-top:8px"></button>
        <button id="suAuto" style="${BTN2};margin-top:8px"></button>
-       <button id="suStart" style="${BTN};margin-top:14px">START RACE</button>
+       <div style="${stickyFoot}">
+         <button id="suStart" style="${BTN};margin-top:0">START RACE</button>
+       </div>
        <button id="suGuide" style="${BTN2}">&#128214; DRIVER'S MANUAL</button>
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:12px">SAVE DATA &mdash; career progress auto-saves; back it up or move it between devices</div>
        <div style="display:flex;gap:8px">

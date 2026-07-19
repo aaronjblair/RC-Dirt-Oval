@@ -10,9 +10,9 @@ import type { RaycastVehicle } from "../physics/RaycastVehicle";
  * wheelstand/squat are already part of the motion). On top of that it adds SUBTLE driver feel:
  * a small lean into the corner, a faint speed-scaled shake, and a touch of speed-FOV.
  *
- * Eye sits just above the helmet (clear of the helmet mesh), behind the steering wheel — looking out
- * over the nose with the roll cage to the sides and the top wing high overhead. Local car frame:
- * +Z forward, +Y up. (Helmet ~y0.5, halo ~y0.52, wheel z-0.02, nose z1.05.)
+ * Eye rides ABOVE the bodywork (clear of the sprint top wing, ~y1.5) and slightly behind the car,
+ * pitched down so the TRACK AHEAD is always visible OVER the front of the car — the nose frames the
+ * bottom of the view instead of blocking it. Local car frame: +Z forward, +Y up.
  */
 /** Per-class cockpit mount: eye position (local to the car root), base look-down pitch, base FOV.
  *  The sprint baseline reads like a winged-sprint cockpit; each class can override (the low, small
@@ -23,13 +23,13 @@ export interface CockpitConfig {
   baseFov: number;
 }
 
-// Sprint/late-model baseline — sits IN the cockpit below the top wing, looking out over the long nose
-// with the roll cage to the sides and the TRACK AHEAD clearly visible.
-const DEFAULT_COCKPIT: CockpitConfig = { eye: new Vector3(0, 1.45, -1.30), basePitch: 0.10, baseFov: 1.34 };
+// Sprint/late-model baseline — raised over the top wing so the racing surface ahead is clearly
+// visible over the nose (the old 1.45 eye put the wing/scoop in the driver's face).
+const DEFAULT_COCKPIT: CockpitConfig = { eye: new Vector3(0, 1.95, -1.55), basePitch: 0.14, baseFov: 1.34 };
 
-// Buggy: a much lower, shorter car — drop the eye behind/above the molded cockpit so the front shock
-// towers + the dirt ahead frame the view (the 1.45 sprint eye would float high above this little car).
-export const BUGGY_COCKPIT: CockpitConfig = { eye: new Vector3(0, 0.62, -0.5), basePitch: 0.05, baseFov: 1.4 };
+// Buggy: a much lower, shorter car — the eye still sits low so the shock towers frame the view,
+// but high enough to see the dirt ahead over the buggy's nose.
+export const BUGGY_COCKPIT: CockpitConfig = { eye: new Vector3(0, 0.85, -0.7), basePitch: 0.09, baseFov: 1.4 };
 
 export class CockpitCamera {
   readonly camera: UniversalCamera;
@@ -89,6 +89,6 @@ export class CockpitCamera {
 
     this.camera.position.set(this.shakeX, this.shakeY, 0);
     this.camera.rotation.set(this.basePitch + this.shakeY * 0.4, this.look, this.lean);
-    this.camera.fov = this.baseFov / zoom + Math.min(0.07, speed * 0.003); // user zoom + subtle sense of speed (kept mild so it never goes fisheye)
+    this.camera.fov = this.baseFov / zoom + Math.min(0.12, speed * 0.004); // user zoom + sense of speed (stronger for the outdoor speed bump, still shy of fisheye)
   }
 }

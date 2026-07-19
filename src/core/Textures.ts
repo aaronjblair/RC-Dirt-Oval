@@ -4,7 +4,11 @@ import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 
-/** PBR dirt material from the bundled CC0 photo set (albedo + normal + AO). */
+/** PBR dirt material from the bundled CC0 photo set (albedo + normal + AO).
+ *  NOTE: no detailMap here — it was tried and reverted. Babylon's detail-map packs normal-X in
+ *  the ALPHA channel (canvas alpha = opaque = max deflection) and expects a LINEAR texture, so a
+ *  canvas noise detail layer silently DARKENED every dirt surface and could deadlock
+ *  scene.executeWhenReady when cloned. The photo normal + baked grit carry the close-up look. */
 export function makeDirtPBR(scene: Scene, name: string, uScale: number, vScale: number, tint: Color3): PBRMaterial {
   const base = import.meta.env.BASE_URL + "textures/dirt/"; // base-relative so it works under a Pages subpath
   const mk = (file: string) => {
@@ -80,7 +84,7 @@ export function makeGrassTexture(scene: Scene, tile = 18): DynamicTexture {
   const wrap = (x: number, y: number, draw: (px: number, py: number) => void) => {
     for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) draw(x + dx * S, y + dy * S);
   };
-  ctx.fillStyle = "#2f5a22"; // base mowed green
+  ctx.fillStyle = "#3f7b2c"; // base mowed green — bright enough to still read GREEN under ACES + scene haze
   ctx.fillRect(0, 0, S, S);
   // broad mow-tone patches (lighter cut areas / darker shaded clumps)
   for (let i = 0; i < 90; i++) {
@@ -88,13 +92,13 @@ export function makeGrassTexture(scene: Scene, tile = 18): DynamicTexture {
     const lighter = Math.random() < 0.5;
     wrap(x, y, (px, py) => {
       const g = ctx.createRadialGradient(px, py, 0, px, py, r);
-      g.addColorStop(0, lighter ? "rgba(86,124,48,0.16)" : "rgba(22,46,14,0.18)");
+      g.addColorStop(0, lighter ? "rgba(112,160,62,0.16)" : "rgba(32,64,20,0.18)");
       g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g; ctx.fillRect(px - r, py - r, r * 2, r * 2);
     });
   }
   // dense blade speckle in several green shades (short varied-angle dashes)
-  const shades = ["#3c6e26", "#4f8a30", "#264a18", "#5c9a38", "#356425"];
+  const shades = ["#4d8a31", "#63a63e", "#33611f", "#74b84a", "#457f2d"];
   ctx.lineWidth = 1;
   for (let i = 0; i < 14000; i++) {
     const x = Math.random() * S, y = Math.random() * S;

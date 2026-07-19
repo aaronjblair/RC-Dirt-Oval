@@ -34,6 +34,28 @@ export function applySetup(cfg: VehicleConfig, s: CarSetup, base: VehicleConfig 
   cfg.tireGrip = base.tireGrip * lerp(1.147, 0.882, s.tire);
   cfg.corneringStiffness = base.corneringStiffness * lerp(0.88, 1.18, s.camber);
   cfg.maxSteer = base.maxSteer * lerp(0.92, 1.08, s.camber);
+
+  // --- PLAYER-ONLY edge -------------------------------------------------------
+  // applySetup runs ONLY for the player car (Field build + garage re-apply); AI
+  // cars never call it, so these flat advantages are the player's alone and hold
+  // in every game mode and car class. Recomputed from the pristine `base` each
+  // call, so they never compound across re-applies.
+  // 1) ~5% faster than any AI car. Top speed ≈ engineForce / rollResist. AI run the raw
+  //    pristine baseline, but the player's setup adds wing DRAG (rollResist above), which can
+  //    otherwise leave the player slower than the AI baseline. So: bump power 5%, then FLOOR the
+  //    player's top speed at 1.05× the AI baseline (raising it only if the setup dragged it under).
+  //    The player can still tune the setup to go FASTER than the floor; they just can't fall below it.
+  cfg.engineForce *= 1.05;
+  const aiTopSpeed = base.engineForce / base.rollResist;
+  const minTopSpeed = aiTopSpeed * 1.05;
+  if (cfg.engineForce / cfg.rollResist < minTopSpeed) cfg.rollResist = cfg.engineForce / minTopSpeed;
+  // 2) easier to steer + more forgiving than the AI baseline:
+  cfg.steerSpeedFalloff = base.steerSpeedFalloff * 0.85; // steering stays responsive at speed
+  cfg.slipSteer = base.slipSteer * 0.8; // less tail-happy — harder to spin
+  cfg.tireGrip *= 1.06; // a touch more grip
+  cfg.corneringStiffness *= 1.08; // slides arrest faster — recovers instead of looping
+  // ---------------------------------------------------------------------------
+
   // softer tires wear faster
   return lerp(0.00011, 0.00004, s.tire);
 }
