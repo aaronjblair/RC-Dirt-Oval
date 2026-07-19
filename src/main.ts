@@ -328,6 +328,10 @@ async function boot() {
   const demo = location.search.includes("demo");
   const seenAttract = (sessionStorage.getItem("rcdirtoval.seen") ?? sessionStorage.getItem("rcsprint.seen")) === "1";
   let state: State = demo ? "racing" : (seenAttract ? "prerace" : "attract");
+  // Opening "photo" intro: the #32 + 11X parked nose-to-tail in a held side view before the
+  // attract reel rolls. introHold counts down; the hidden rest-of-field is restored after.
+  let introHold = 0;
+  let introHidden: Array<{ root: { setEnabled(b: boolean): void } }> = [];
   let awarded = false;
   let victoryShown = false; // the winner's-photo overlay has been shown for this race
   const raceDist = def.laps * track.length;
@@ -557,6 +561,28 @@ async function boot() {
       // Hide the racing HUD; the reel should read as a video, not gameplay.
       hud.style.display = "none";
       fpsEl.style.display = "none";
+      // INTRO PHOTO: park the 11X directly behind the #32 (same heading) on the front stretch and
+      // hold a pure side view of the pair for a few seconds before the demo action starts.
+      const c32 = field.cars[0], c11 = field.cars[1];
+      if (c11) {
+        introHidden = field.cars.slice(2);
+        introHidden.forEach((c) => c.root.setEnabled(false));
+        const yaw = field.playerVehicle.heading;
+        const fwd = new Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+        const parked = c32.vehicle.position.subtract(fwd.scale(3.4));
+        c11.vehicle.resetTo(parked, yaw); // physics agrees with the visual when the reel starts
+        // the vehicle only syncs its mesh on update() (skipped during the hold) — move the root too
+        if (c11.root.rotationQuaternion && c32.root.rotationQuaternion) c11.root.rotationQuaternion.copyFrom(c32.root.rotationQuaternion);
+        else c11.root.rotation.copyFrom(c32.root.rotation);
+        c11.root.position.copyFrom(parked);
+        c11.root.position.y = c32.root.position.y;
+        const mid = c32.vehicle.position.add(parked).scale(0.5);
+        const right = new Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
+        aerialCam.position.copyFrom(mid.subtract(right.scale(7)));
+        aerialCam.position.y = mid.y + 1.0;
+        aerialCam.setTarget(mid.add(new Vector3(0, -0.55, 0))); // aim low → the cars sit above the title text
+        introHold = 4.5;
+      }
       Screens.attract(def, () => {
         // Enter the menu with a fresh grid by reloading (the cars have been driving).
         sessionStorage.setItem("rcdirtoval.seen", "1");
@@ -675,15 +701,21 @@ async function boot() {
       }
       if (race.state.finished) finalize(); // race ends one lap after the winner crosses
     } else if (state === "attract") {
-      // Run the AI field on a rubbered-in mid-race surface, drive the cinematic cam.
-      physAcc += frameDt;
-      let steps = 0;
-      while (physAcc >= FIXED && steps < 6) { field.attractUpdate(FIXED, 0.4); physAcc -= FIXED; steps++; }
-      const cars = field.cars;
-      let fx = 0, fy = 0, fz = 0;
-      for (const c of cars) { const p = c.vehicle.position; fx += p.x; fy += p.y; fz += p.z; }
-      const focus = new Vector3(fx / cars.length, fy / cars.length, fz / cars.length);
-      cine.update(frameDt, focus, field.playerVehicle.position, field.playerVehicle.heading);
+      if (introHold > 0) {
+        // Held intro photo — the pair sit parked; the reel starts when the hold expires.
+        introHold -= frameDt;
+        if (introHold <= 0) { introHidden.forEach((c) => c.root.setEnabled(true)); introHidden = []; }
+      } else {
+        // Run the AI field on a rubbered-in mid-race surface, drive the cinematic cam.
+        physAcc += frameDt;
+        let steps = 0;
+        while (physAcc >= FIXED && steps < 6) { field.attractUpdate(FIXED, 0.4); physAcc -= FIXED; steps++; }
+        const cars = field.cars;
+        let fx = 0, fy = 0, fz = 0;
+        for (const c of cars) { const p = c.vehicle.position; fx += p.x; fy += p.y; fz += p.z; }
+        const focus = new Vector3(fx / cars.length, fy / cars.length, fz / cars.length);
+        cine.update(frameDt, focus, field.playerVehicle.position, field.playerVehicle.heading);
+      }
     } else if (state === "replay") {
       // Drive every car from the recorded poses; advance the playhead when playing.
       if (replayPlaying) {
@@ -714,7 +746,7 @@ async function boot() {
         : view === "aerial" ? aerialCam
         : view === "topdown" ? rcProAm.camera
         : cam.camera;
-      scene.activeCamera = state === "attract" ? cine.camera : live;
+      scene.activeCamera = state === "attract" ? (introHold > 0 ? aerialCam : cine.camera) : live;
     }
     if (photoMode) {
       // Lock a close rear-3/4 view onto the player car (shows the spoiler/sail/roof), heading-relative

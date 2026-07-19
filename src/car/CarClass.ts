@@ -35,9 +35,9 @@ export const CAR_CLASSES: Record<CarClassId, CarClassDef> = {
     config: DEFAULT_CONFIG,
   },
   latemodel: {
-    id: "latemodel",
-    label: "Dirt Late Model",
-    subtitle: "Full-fendered wedge — heavy, planted, big momentum",
+    id: "latemodel", // id kept as "latemodel" so existing class/career saves survive the rename
+    label: "Dirt Sport Mod",
+    subtitle: "IMCA-style open-wheel modified — exposed front end, big slab sides",
     build: createLateModel,
     config: LATE_MODEL_CONFIG,
   },
@@ -50,26 +50,21 @@ export const CAR_CLASSES: Record<CarClassId, CarClassDef> = {
   },
 };
 
-export const CAR_CLASS_LIST: CarClassDef[] = [CAR_CLASSES.sprint, CAR_CLASSES.latemodel, CAR_CLASSES.buggy];
+// The Dirt Sport Mod is the game's ONLY class (2026-07-19): the sprint/buggy defs stay in code
+// but are no longer offered — the menu list carries just the one entry.
+export const CAR_CLASS_LIST: CarClassDef[] = [CAR_CLASSES.latemodel];
 
 const CLASS_KEY = "rcdirtoval.class";
-const CLASS_KEY_OLD = "rcsprint.class";
 
 export function isCarClassId(v: string | null): v is CarClassId {
   return v === "sprint" || v === "latemodel" || v === "buggy";
 }
 
 export function loadCarClass(): CarClassId {
-  try {
-    let v = localStorage.getItem(CLASS_KEY);
-    if (v == null) {
-      // One-time prefix migration: carry over the old rcsprint.* save.
-      const old = localStorage.getItem(CLASS_KEY_OLD);
-      if (old != null) { v = old; try { localStorage.setItem(CLASS_KEY, old); } catch { /* ignore */ } }
-    }
-    if (isCarClassId(v)) return v;
-  } catch { /* ignore */ }
-  return "sprint";
+  // Single-class game (2026-07-19): always the Dirt Sport Mod. Any stored multi-class pick
+  // (rcdirtoval.class / old rcsprint.class) is ignored — careers stay keyed per-class, so an
+  // old sprint/buggy career simply sits dormant under its own key.
+  return "latemodel";
 }
 
 export function saveCarClass(id: CarClassId) {

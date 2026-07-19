@@ -453,6 +453,54 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
   towerAt(tx, tz); towerAt(-tx, tz); towerAt(tx, -tz); towerAt(-tx, -tz);
   towerAt(tx, 0); towerAt(-tx, 0); // mid-straight lamps so light rings the whole track
 
+  // --- STREET LIGHTS ringing the corner arcs (oval only): classic cobra-head poles — a tapered
+  //     mast, a curved arm reaching over the wall, a boxy head with a glowing lens — filling the
+  //     turns between the big floodlight towers so the corners read lit like a real bullring. ---
+  const streetLightAt = (x: number, z: number, cx: number, cz: number) => {
+    // pole faces from (x,z) toward the corner-arc center (cx,cz)
+    const dx = cx - x, dz = cz - z, dl = Math.hypot(dx, dz), ux = dx / dl, uz = dz / dl;
+    const H = 13;
+    const pole = MeshBuilder.CreateCylinder("slPole", { diameterBottom: 0.34, diameterTop: 0.2, height: H, tessellation: 10 }, scene);
+    pole.position.set(x, H / 2, z); pole.material = steel; cast(pole);
+    // curved arm arcing inward over the wall
+    const arm = MeshBuilder.CreateTube("slArm", {
+      path: [
+        new Vector3(x, H - 0.2, z),
+        new Vector3(x + ux * 1.2, H + 0.7, z + uz * 1.2),
+        new Vector3(x + ux * 2.6, H + 0.95, z + uz * 2.6),
+      ], radius: 0.09, tessellation: 8,
+    }, scene);
+    arm.material = steel; cast(arm);
+    // cobra head + downward glowing lens
+    const hx = x + ux * 2.8, hz = z + uz * 2.8, hy = H + 0.9;
+    const head = MeshBuilder.CreateBox("slHead", { width: 0.5, height: 0.22, depth: 1.0 }, scene);
+    head.position.set(hx, hy, hz); head.lookAt(new Vector3(cx, hy, cz)); head.material = lampCan; cast(head);
+    const lens = MeshBuilder.CreateCylinder("slLens", { diameter: 0.34, height: 0.06, tessellation: 12 }, scene);
+    lens.position.set(hx, hy - 0.13, hz); lens.material = lampGlass;
+    if (glowMat && beamMat) {
+      const halo = MeshBuilder.CreatePlane("slHalo", { size: 3.2 }, scene);
+      halo.position.set(hx, hy, hz); halo.billboardMode = Mesh.BILLBOARDMODE_ALL;
+      halo.material = glowMat; halo.isPickable = false;
+      const beam = MeshBuilder.CreateCylinder("slBeam", { diameterTop: 0.9, diameterBottom: 7, height: hy, tessellation: 20, cap: Mesh.NO_CAP }, scene);
+      beam.position.set(hx, hy / 2, hz); beam.material = beamMat; beam.isPickable = false;
+    }
+    const pl = new PointLight("slL" + x.toFixed(0) + z.toFixed(0), new Vector3(hx, hy - 0.6, hz), scene);
+    pl.intensity = night ? 240 : 0; // lit only at night, warmer sodium-ish tone than the towers
+    pl.range = 55;
+    pl.diffuse = new Color3(1, 0.93, 0.78);
+    pl.specular = new Color3(1, 0.94, 0.8);
+  };
+  if (!offroad) {
+    const arcR = outerX + 5; // just outside the corner wall
+    for (const sz of [1, -1]) {
+      const czc = sz * (L / 2); // corner-arc center for this end of the oval
+      for (const deg of [30, 60, 90, 120, 150]) {
+        const a = (deg * Math.PI) / 180;
+        streetLightAt(Math.cos(a) * arcR, czc + sz * Math.sin(a) * arcR, 0, czc);
+      }
+    }
+  }
+
   // --- Start/finish gantry over the line. Oval spans the front straight; the winding
   //     off-road loop spans the line via its centerline sample (posts on each edge,
   //     beam aligned across the track). ---

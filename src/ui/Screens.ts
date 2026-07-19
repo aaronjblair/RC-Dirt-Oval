@@ -198,10 +198,9 @@ export const Screens = {
       `<button class="suMode" data-id="${m.id}" style="${BTN2};${pick}">
          <div style="font-size:14px;font-weight:800;color:#ffd34d">${m.label}</div>
          <div style="font-size:11px;color:#c8d0da;margin-top:2px">${m.sub}</div></button>`).join("");
+    // Single-track game: only the career dirt oval is offered (figure-8/off-road defs stay in code).
     const tracks: { id: "career" | "figure8" | "offroad"; label: string; sub: string }[] = [
-      { id: "career", label: "CAREER OVAL", sub: "The 15-round championship on the banked dirt oval." },
-      { id: "figure8", label: "FIGURE-8", sub: "Self-crossing at-grade X &mdash; cross traffic, T-bones, chaos." },
-      { id: "offroad", label: "OFF-ROAD STADIUM", sub: "Buggy-only. Floodlit supercross arena — bermed loop, varied jumps." },
+      { id: "career", label: "DIRT OVAL", sub: "The 15-round championship on the banked dirt oval." },
     ];
     const trackBtns = tracks.map((t) =>
       `<button class="suTrack" data-id="${t.id}" style="${BTN2};${pick}">
