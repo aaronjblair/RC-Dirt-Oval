@@ -4,7 +4,8 @@ import { openGuide } from "./Guide";
 
 const CARD =
   "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);min-width:380px;max-width:460px;" +
-  "background:rgba(12,16,22,0.96);border:1px solid #2a3340;border-radius:16px;padding:24px 28px;" +
+  "max-height:92vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;" +
+  "background:rgba(12,16,22,0.96);border:1px solid #2a3340;border-radius:16px;padding:18px 24px;" +
   "font-family:'Segoe UI',system-ui,sans-serif;color:#eef2f7;z-index:30;box-shadow:0 16px 50px rgba(0,0,0,0.65);";
 const BTN =
   "display:block;width:100%;margin-top:10px;padding:12px;border:none;border-radius:10px;cursor:pointer;" +
@@ -33,6 +34,22 @@ function panel(html: string): HTMLDivElement {
 }
 
 export const Screens = {
+  /** Full-screen winner's photo (Jay by the #32) — shown whenever the PLAYER wins; waits for CONTINUE. */
+  victory(onContinue: () => void): HTMLDivElement {
+    const d = document.createElement("div");
+    d.style.cssText =
+      "position:fixed;inset:0;z-index:40;background:rgba(4,6,9,0.92);display:flex;flex-direction:column;" +
+      "align-items:center;justify-content:center;gap:14px;padding:3vh 0";
+    d.innerHTML =
+      `<div style="font-family:'Segoe UI',system-ui,sans-serif;font-size:26px;font-weight:800;color:#ffd34d;letter-spacing:2px">&#127942; WINNER!</div>
+       <img src="${import.meta.env.BASE_URL}superjay-victory.png" alt="Winner"
+         style="max-height:74vh;max-width:92vw;border-radius:12px;box-shadow:0 16px 60px rgba(0,0,0,0.8)" />
+       <button id="vicGo" style="${BTN};width:auto;padding:12px 42px;margin-top:0">CONTINUE</button>`;
+    (d.querySelector("#vicGo") as HTMLButtonElement).onclick = () => { d.remove(); onContinue(); };
+    document.body.appendChild(d);
+    return d;
+  },
+
   /** Full-screen attract title over the cinematic reel. Any click/key enters the menu. */
   attract(def: TrackDef, onEnter: () => void): HTMLDivElement {
     const d = document.createElement("div");
@@ -41,7 +58,7 @@ export const Screens = {
       "padding-bottom:9vh;cursor:pointer;font-family:'Segoe UI',system-ui,sans-serif;text-align:center;" +
       "background:linear-gradient(to bottom,rgba(0,0,0,0.30) 0%,rgba(0,0,0,0) 26%,rgba(0,0,0,0) 64%,rgba(0,0,0,0.60) 100%);";
     d.innerHTML =
-      `<div style="font-size:64px;font-weight:900;letter-spacing:4px;color:#ffd34d;text-shadow:0 4px 26px rgba(0,0,0,0.95)">RC DIRT OVAL</div>
+      `<div style="font-size:64px;font-weight:900;letter-spacing:4px;color:#ffd34d;text-shadow:0 4px 26px rgba(0,0,0,0.95)">SUPER JAY RC</div>
        <div style="font-size:15px;letter-spacing:2px;color:#dfe7f0;text-shadow:0 2px 10px rgba(0,0,0,0.9);margin-top:2px">1/10 DIRT-OVAL SPRINT CAR RACING</div>
        <div style="font-size:12px;color:#c8d0da;text-shadow:0 2px 8px rgba(0,0,0,0.9);margin-top:6px">Featuring &middot; ${def.name}</div>
        <div style="margin-top:22px;font-size:15px;font-weight:800;color:#0c0f14;background:#ffd34d;padding:12px 28px;border-radius:30px;box-shadow:0 6px 20px rgba(0,0,0,0.5);animation:atPulse 1.4s ease-in-out infinite">CLICK OR PRESS ANY KEY TO RACE</div>
@@ -156,12 +173,16 @@ export const Screens = {
     name: string;
     classes: { id: string; label: string; subtitle: string }[];
     currentClass: string; currentMode: "career" | "arcade"; currentTrack: "career" | "figure8" | "offroad";
+    currentTime: "day" | "night";
     muted: boolean; autoThrottle: boolean;
-    onStart: (sel: { name: string; classId: string; mode: "career" | "arcade"; track: "career" | "figure8" | "offroad"; muted: boolean; auto: boolean }) => void;
+    onStart: (sel: { name: string; classId: string; mode: "career" | "arcade"; track: "career" | "figure8" | "offroad"; time: "day" | "night"; muted: boolean; auto: boolean }) => void;
+    onExportSave: () => void;
+    onImportSave: (text: string) => string | null; // returns an error message, or null on success
   }): HTMLDivElement {
     let selClass = opts.currentClass;
     let selMode: "career" | "arcade" = opts.currentMode;
     let selTrack: "career" | "figure8" | "offroad" = opts.currentTrack;
+    let selTime: "day" | "night" = opts.currentTime;
     let selMuted = opts.muted;
     let selAuto = opts.autoThrottle;
     const pick = "text-align:left;margin-top:8px;padding:10px 12px";
@@ -180,7 +201,7 @@ export const Screens = {
     const tracks: { id: "career" | "figure8" | "offroad"; label: string; sub: string }[] = [
       { id: "career", label: "CAREER OVAL", sub: "The 15-round championship on the banked dirt oval." },
       { id: "figure8", label: "FIGURE-8", sub: "Self-crossing at-grade X &mdash; cross traffic, T-bones, chaos." },
-      { id: "offroad", label: "OFF-ROAD (DAYTIME)", sub: "Winding dirt loop with real jumps. Races in daylight." },
+      { id: "offroad", label: "OFF-ROAD STADIUM", sub: "Buggy-only. Floodlit supercross arena — bermed loop, varied jumps." },
     ];
     const trackBtns = tracks.map((t) =>
       `<button class="suTrack" data-id="${t.id}" style="${BTN2};${pick}">
@@ -195,10 +216,17 @@ export const Screens = {
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:12px">CLASS</div>${classBtns}
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:12px">MODE</div>${modeBtns}
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:12px">TRACK</div>${trackBtns}
-       <button id="suSound" style="${BTN2};margin-top:12px"></button>
+       <button id="suTime" style="${BTN2};margin-top:12px"></button>
+       <button id="suSound" style="${BTN2};margin-top:8px"></button>
        <button id="suAuto" style="${BTN2};margin-top:8px"></button>
        <button id="suStart" style="${BTN};margin-top:14px">START RACE</button>
        <button id="suGuide" style="${BTN2}">&#128214; DRIVER'S MANUAL</button>
+       <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:12px">SAVE DATA &mdash; career progress auto-saves; back it up or move it between devices</div>
+       <div style="display:flex;gap:8px">
+         <button id="suExport" style="${BTN2};flex:1">&#11015;&#65039; EXPORT SAVE</button>
+         <button id="suImport" style="${BTN2};flex:1">&#11014;&#65039; IMPORT SAVE</button>
+       </div>
+       <div id="suSaveMsg" style="font-size:11px;color:#9aa6b3;text-align:center;margin-top:4px;min-height:14px"></div>
        <div style="font-size:11px;color:#9aa6b3;letter-spacing:1px;margin-top:12px">CHAMPIONSHIP</div>${standingsTable(opts.champ, 5)}`
     );
     const input = p.querySelector("#suName") as HTMLInputElement;
@@ -219,30 +247,82 @@ export const Screens = {
         el.style.border = on ? "2px solid #ffd34d" : "2px solid transparent";
         el.style.background = on ? "#3a4250" : "#33414f";
       });
+      (p.querySelector("#suTime") as HTMLButtonElement).innerHTML = selTrack === "career"
+        ? "&#127765; TIME: RANDOM (varies each round)"
+        : (selTime === "night" ? "&#127769; TIME: NIGHT" : "&#9728;&#65039; TIME: DAY");
       (p.querySelector("#suSound") as HTMLButtonElement).innerHTML = selMuted ? "&#128263; SOUND: OFF" : "&#128266; SOUND: ON";
       (p.querySelector("#suAuto") as HTMLButtonElement).innerHTML = selAuto ? "&#127937; AUTO-THROTTLE: ON (steer only)" : "&#127937; AUTO-THROTTLE: OFF";
     };
-    p.querySelectorAll(".suClass").forEach((b) => ((b as HTMLElement).onclick = () => { selClass = (b as HTMLElement).dataset.id!; paint(); }));
+    p.querySelectorAll(".suClass").forEach((b) => ((b as HTMLElement).onclick = () => {
+      selClass = (b as HTMLElement).dataset.id!;
+      // Off-road is buggy-only: choosing a non-buggy class drops off-road back to the career oval.
+      if (selClass !== "buggy" && selTrack === "offroad") selTrack = "career";
+      paint();
+    }));
     p.querySelectorAll(".suMode").forEach((b) => ((b as HTMLElement).onclick = () => { selMode = (b as HTMLElement).dataset.id as "career" | "arcade"; paint(); }));
-    p.querySelectorAll(".suTrack").forEach((b) => ((b as HTMLElement).onclick = () => { selTrack = (b as HTMLElement).dataset.id as "career" | "figure8" | "offroad"; paint(); }));
+    p.querySelectorAll(".suTrack").forEach((b) => ((b as HTMLElement).onclick = () => {
+      selTrack = (b as HTMLElement).dataset.id as "career" | "figure8" | "offroad";
+      // Off-road is buggy-only: picking it switches the class to the buggy.
+      if (selTrack === "offroad") selClass = "buggy";
+      paint();
+    }));
+    // In career the time button is informational ("RANDOM per round") — don't let a click flip the
+    // hidden selTime (which would force a needless reload + write the exhibition pref on START).
+    (p.querySelector("#suTime") as HTMLButtonElement).onclick = () => { if (selTrack !== "career") { selTime = selTime === "night" ? "day" : "night"; paint(); } };
     (p.querySelector("#suSound") as HTMLButtonElement).onclick = () => { selMuted = !selMuted; paint(); };
     (p.querySelector("#suAuto") as HTMLButtonElement).onclick = () => { selAuto = !selAuto; paint(); };
     (p.querySelector("#suGuide") as HTMLButtonElement).onclick = () => openGuide();
-    (p.querySelector("#suStart") as HTMLButtonElement).onclick = () => { p.remove(); opts.onStart({ name: input.value, classId: selClass, mode: selMode, track: selTrack, muted: selMuted, auto: selAuto }); };
+    // Save data: export downloads a JSON backup; import reads one back (validated — a bad
+    // file is rejected without touching the existing save) then reloads into the new state.
+    const saveMsg = p.querySelector("#suSaveMsg") as HTMLDivElement;
+    (p.querySelector("#suExport") as HTMLButtonElement).onclick = () => {
+      opts.onExportSave();
+      saveMsg.style.color = "#6dff7a";
+      saveMsg.textContent = "Save exported — check your downloads.";
+    };
+    (p.querySelector("#suImport") as HTMLButtonElement).onclick = () => {
+      const file = document.createElement("input");
+      file.type = "file";
+      file.accept = ".json,application/json";
+      file.onchange = () => {
+        const f = file.files?.[0];
+        if (!f) return;
+        f.text().then((text) => {
+          const err = opts.onImportSave(text);
+          if (err) { saveMsg.style.color = "#ff7a6d"; saveMsg.textContent = err; return; }
+          saveMsg.style.color = "#6dff7a";
+          saveMsg.textContent = "Save imported — reloading…";
+          setTimeout(() => location.reload(), 600);
+        });
+      };
+      file.click();
+    };
+    (p.querySelector("#suStart") as HTMLButtonElement).onclick = () => { p.remove(); opts.onStart({ name: input.value, classId: selClass, mode: selMode, track: selTrack, time: selTime, muted: selMuted, auto: selAuto }); };
     paint();
     setTimeout(() => { input.focus(); input.select(); }, 0);
     return p;
   },
 
-  /** In-race pause menu: Resume / Restart / Quit to Menu, plus a sound enable/disable toggle. The race
-   *  stays frozen behind it, so Resume returns to the exact race state; only Quit leaves to the home screen. */
-  pauseMenu(opts: { onResume: () => void; onRestart: () => void; onMenu: () => void; muted: boolean; onToggleSound: () => boolean }): HTMLDivElement {
+  /** In-race pause menu: Resume / Restart / Quit to Menu, plus a live SETTINGS panel (sound,
+   *  auto-throttle, graphics quality, camera view — all applied instantly). The race stays frozen
+   *  behind it, so Resume returns to the exact race state; only Quit leaves to the home screen. */
+  pauseMenu(opts: {
+    onResume: () => void; onRestart: () => void; onMenu: () => void;
+    muted: boolean; onToggleSound: () => boolean;
+    autoThrottle: boolean; onToggleAuto: () => boolean;
+    qualityLabel: string; onCycleQuality: () => string;
+    viewLabel: string; onCycleView: () => string;
+  }): HTMLDivElement {
     const p = panel(
       `<div style="font-size:24px;font-weight:900;letter-spacing:2px;color:#ffd34d;text-align:center;margin-bottom:4px">&#9208; PAUSED</div>
-       <div style="font-size:12px;color:#c8d0da;text-align:center;margin-bottom:12px">The race is frozen &mdash; pick up right where you left off, restart it, or quit to the menu.</div>
+       <div style="font-size:12px;color:#c8d0da;text-align:center;margin-bottom:12px">The race is frozen &mdash; change settings, pick up right where you left off, restart, or quit to the menu.</div>
        <button id="puResume" style="${BTN}">RESUME</button>
        <button id="puRestart" style="${BTN2}">RESTART RACE</button>
+       <div style="font-size:11px;color:#7f8a98;letter-spacing:1px;text-align:center;margin:10px 0 4px">SETTINGS &mdash; applied instantly</div>
        <button id="puSound" style="${BTN2}"></button>
+       <button id="puAuto" style="${BTN2}"></button>
+       <button id="puQuality" style="${BTN2}"></button>
+       <button id="puView" style="${BTN2}"></button>
        <button id="puMenu" style="${BTN2}">QUIT TO MENU</button>
        <div style="font-size:11px;color:#7f8a98;text-align:center;margin-top:10px">Press <b>P</b> to resume</div>`
     );
@@ -250,6 +330,18 @@ export const Screens = {
     const paintSnd = (muted: boolean) => { sndBtn.innerHTML = muted ? "&#128263; SOUND: OFF" : "&#128266; SOUND: ON"; };
     paintSnd(opts.muted);
     sndBtn.onclick = () => paintSnd(opts.onToggleSound());
+    const autoBtn = p.querySelector("#puAuto") as HTMLButtonElement;
+    const paintAuto = (on: boolean) => { autoBtn.innerHTML = on ? "&#128663; AUTO-THROTTLE: ON" : "&#128663; AUTO-THROTTLE: OFF"; };
+    paintAuto(opts.autoThrottle);
+    autoBtn.onclick = () => paintAuto(opts.onToggleAuto());
+    const qBtn = p.querySelector("#puQuality") as HTMLButtonElement;
+    const paintQ = (label: string) => { qBtn.innerHTML = "&#9881;&#65039; GRAPHICS: " + label; };
+    paintQ(opts.qualityLabel);
+    qBtn.onclick = () => paintQ(opts.onCycleQuality());
+    const vBtn = p.querySelector("#puView") as HTMLButtonElement;
+    const paintV = (label: string) => { vBtn.innerHTML = "&#127909; CAMERA: " + label; };
+    paintV(opts.viewLabel);
+    vBtn.onclick = () => paintV(opts.onCycleView());
     (p.querySelector("#puResume") as HTMLButtonElement).onclick = () => opts.onResume();
     (p.querySelector("#puRestart") as HTMLButtonElement).onclick = () => opts.onRestart();
     (p.querySelector("#puMenu") as HTMLButtonElement).onclick = () => opts.onMenu();

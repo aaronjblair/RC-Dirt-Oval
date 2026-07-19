@@ -1,21 +1,22 @@
 /** Championship points by finishing position (1st .. 12th). */
 export const POINTS = [25, 20, 16, 13, 11, 9, 7, 5, 4, 3, 2, 1];
 
-/** Car numbers per grid slot; slot 0 is the player — Super Jay's #32. Matches Field palette. */
-export const DRIVER_NUMBERS = [32, 7, 1, 11, 24, 9, 42, 15, 17, 2, 5, 21];
+/** Car numbers per grid slot; slot 0 is the player — Super Jay's #32; slot 1 is always the
+ *  white/black 11X modified. Matches Field palette. */
+export const DRIVER_NUMBERS: (number | string)[] = [32, "11X", 46, 11, 24, 9, 42, 15, 17, 2, 5, 21];
 
 /** Full names for the AI field. Assigned deterministically per grid slot (slot 1 = AI_NAMES[0], …)
  *  so a given AI "driver" keeps the same name across the season — the championship standings (keyed
  *  by name) stay coherent round-to-round instead of scattering into one-off random names. */
 export const AI_NAMES = [
-  "Dale Hutchins", "Rusty Calhoun", "Cody Marsh", "Travis Boone", "Wade Stratton",
+  "Jordan Eddleman", "Aaron Blair", "Cody Marsh", "Travis Boone", "Wade Stratton",
   "Buddy Renfro", "Cole Vandruff", "Shane McNair", "Earl Dobbins", "Jesse Holloway",
   "Tanner Pruitt", "Gus Whitaker", "Lonnie Brackett", "Hank Sizemore",
 ];
 
 const NAME_KEY = "rcdirtoval.playername";
 const NAME_KEY_OLD = "rcsprint.playername";
-export const DEFAULT_PLAYER_NAME = "Super Jay";
+export const DEFAULT_PLAYER_NAME = "Jay Hank";
 
 /** Read `newKey`, falling back to (and migrating from) the old `rcsprint.*` key once. */
 function readMigrated(newKey: string, oldKey: string): string | null {
@@ -115,4 +116,51 @@ export function standings(c: Career): Standing[] {
   return Object.entries(c.points)
     .map(([name, points]) => ({ name, points }))
     .sort((a, b) => b.points - a.points);
+}
+
+// --- Save EXPORT / IMPORT ---------------------------------------------------
+// The whole game state (careers per class, name, settings) lives in localStorage
+// under the `rcdirtoval.` prefix. Export bundles every such key into a JSON file
+// the player downloads; import validates and writes them back, so progress can be
+// backed up or moved between devices/installs. Auto-save behavior is unchanged.
+
+const SAVE_PREFIX = "rcdirtoval.";
+const SAVE_MAGIC = "superjay-rc-save";
+
+/** Serialize every rcdirtoval.* localStorage key and trigger a JSON file download. */
+export function exportSave(): void {
+  const data: Record<string, string> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(SAVE_PREFIX)) data[k] = localStorage.getItem(k) ?? "";
+    }
+  } catch { /* storage unavailable — nothing to export */ }
+  const payload = JSON.stringify({ magic: SAVE_MAGIC, version: 1, data }, null, 2);
+  const blob = new Blob([payload], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "superjay-save.json";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+/** Validate + apply an exported save file's text. Returns an error message, or null on
+ *  success. Rejects anything that isn't our format WITHOUT touching the existing save. */
+export function importSave(text: string): string | null {
+  let parsed: unknown;
+  try { parsed = JSON.parse(text); } catch { return "That file isn't a valid save (not JSON)."; }
+  const obj = parsed as { magic?: string; data?: Record<string, unknown> };
+  if (!obj || obj.magic !== SAVE_MAGIC || typeof obj.data !== "object" || obj.data === null) {
+    return "That file isn't a Super Jay RC save.";
+  }
+  const entries = Object.entries(obj.data).filter(
+    ([k, v]) => k.startsWith(SAVE_PREFIX) && typeof v === "string"
+  );
+  if (!entries.length) return "That save file is empty.";
+  try {
+    for (const [k, v] of entries) localStorage.setItem(k, v as string);
+  } catch { return "Couldn't write the save (browser storage unavailable)."; }
+  return null;
 }

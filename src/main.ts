@@ -16,6 +16,7 @@ import { CockpitCamera, BUGGY_COCKPIT } from "./core/CockpitCamera";
 import { RCProAmCamera } from "./core/RCProAmCamera";
 import { setupEnvironment, SUN_DIR } from "./core/Environment";
 import { QualityManager } from "./core/QualityManager";
+import { MotionBlurPostProcess } from "@babylonjs/core/PostProcesses/motionBlurPostProcess";
 import { OvalTrack } from "./track/OvalTrack";
 import { buildScenery } from "./track/Scenery";
 import { generateCareer } from "./track/tracks";
@@ -30,11 +31,11 @@ import { SetupPanel } from "./ui/SetupPanel";
 import { Screens } from "./ui/Screens";
 import { Minimap } from "./ui/Minimap";
 import { MotorSound } from "./audio/MotorSound";
-import { loadCareer, saveCareer, resetCareer, awardPoints, standings, POINTS, loadPlayerName, savePlayerName, titleCaseName } from "./career/Career";
+import { loadCareer, saveCareer, resetCareer, awardPoints, standings, POINTS, loadPlayerName, savePlayerName, titleCaseName, exportSave, importSave } from "./career/Career";
 import { CAR_CLASSES, CAR_CLASS_LIST, loadCarClass, saveCarClass, isCarClassId, type CarClassId } from "./car/CarClass";
 import { ArcadeManager } from "./game/Arcade";
 import { loadMode, saveMode, modeFromParam, loadArcadeRun, saveArcadeRun, resetArcadeRun, type GameMode } from "./game/Mode";
-import { loadTrackChoice, saveTrackChoice, trackFromParam, trackDefFor, type TrackChoice } from "./track/TrackSelect";
+import { loadTrackChoice, saveTrackChoice, trackFromParam, trackDefFor, loadDayNight, saveDayNight, type TrackChoice } from "./track/TrackSelect";
 import { RaceRecorder } from "./replay/Replay";
 
 const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
@@ -73,10 +74,10 @@ async function boot() {
   setBootProgress(50, "Building track…");
 
   // --- Car class (chosen on the start screen; each class has its own career) ---
-  // `?class=sprint|latemodel` overrides the saved choice (dev/preview/share).
+  // `?class=sprint|latemodel|buggy` overrides the saved choice (dev/preview/share).
   const classParam = new URLSearchParams(location.search).get("class");
-  const carClass: CarClassId = isCarClassId(classParam) ? classParam : loadCarClass();
-  const carClassDef = CAR_CLASSES[carClass];
+  let carClass: CarClassId = isCarClassId(classParam) ? classParam : loadCarClass();
+  let carClassDef = CAR_CLASSES[carClass];
 
   // --- Game mode (chosen on the start screen): "career" (sim championship) or "arcade" (RC Pro-Am
   //     style: on-track pickups, boost strips, collectible letters, slicks, top-3-to-advance + continues).
@@ -86,9 +87,14 @@ async function boot() {
 
   // --- Track choice (start-screen picker): the 15-round career OVAL, a self-crossing FIGURE-8, or a
   //     jump-laden OFF-ROAD loop. `?track=` overrides. Figure-8/off-road are EXHIBITION races —
-  //     a single stand-alone run with no career points / arcade run-state. Off-road runs in DAYLIGHT. ---
+  //     a single stand-alone run with no career points / arcade run-state. Off-road is BUGGY-ONLY and
+  //     defaults to NIGHT (the lit-arena stadium look); the player can toggle day. ---
   const trackParam = trackFromParam(new URLSearchParams(location.search).get("track"));
   const trackChoice: TrackChoice = trackParam ?? loadTrackChoice();
+  // OFF-ROAD is BUGGY-ONLY: force the whole field (player + AI all build from this one classDef) to
+  // buggies whenever the off-road track is chosen — regardless of the saved class or a ?class= override.
+  // (Buggies may still race the oval/figure-8; the rule is one-directional.)
+  if (trackChoice === "offroad") { carClass = "buggy"; carClassDef = CAR_CLASSES.buggy; }
   const exhibition = trackChoice !== "career";
   const arcadeRun = (gameMode === "arcade" && !exhibition) ? loadArcadeRun() : null;
 
@@ -103,11 +109,14 @@ async function boot() {
     : Math.min(arcadeRun ? arcadeRun.round : career.round, careerTracks.length - 1);
   // Exhibition tracks (figure-8 / off-road) use their own stand-alone def; career uses the round.
   const def = trackDefFor(trackChoice) ?? careerTracks[round];
-  // HARD RULE: RC Dirt Oval is set at NIGHT, game-wide (lit lamp towers + crescent moon + starfield).
-  // Do NOT ship daytime racing — the night look is the game's identity (see CLAUDE.md). The lone
-  // exception is the OFF-ROAD track, which the user wants in DAYLIGHT. `?day` is a DEV-ONLY preview
-  // override for the night tracks; it must never be the shipped default.
-  def.night = def.shape !== "offroad" && !new URLSearchParams(location.search).has("day");
+  // Day/night is a PLAYER CHOICE now (the old game-wide forced-night rule is relaxed). `?day`/`?night`
+  // are dev/preview overrides; otherwise CAREER re-rolls day/night RANDOMLY each round ("change it up"),
+  // while EXHIBITION tracks (figure-8 / off-road) follow the setup-screen Day/Night toggle.
+  const dnParams = new URLSearchParams(location.search);
+  if (dnParams.has("day")) def.night = false;
+  else if (dnParams.has("night")) def.night = true;
+  else if (exhibition) { const dn = loadDayNight(); if (dn) def.night = dn === "night"; } // null = keep the def's authored default (off-road night / figure-8 night)
+  else def.night = Math.random() < 0.5; // career: random per round, re-rolled each playthrough
   def.fieldSize = 8 + Math.floor(Math.random() * 5); // each race runs a random 8–12-car field
 
   const cam = new DriverStandCamera(scene, canvas);
@@ -117,10 +126,37 @@ async function boot() {
   // Adaptive graphics quality: auto-scales render detail to hold ~60 FPS (desktop starts
   // High, phones Low), climbing toward Ultra when the GPU has headroom. Ticked every frame.
   const quality = new QualityManager(engine, env.pipeline, env.ssao, coarsePointer ? 1 : 3);
+  // Restore a pinned pause-menu quality pick ("auto" or a tier index).
+  try {
+    const savedQ = localStorage.getItem("rcdirtoval.quality");
+    if (savedQ && savedQ !== "auto") quality.lockTier(parseInt(savedQ, 10));
+  } catch { /* ignore */ }
+  // Motion blur is ULTRA-only (desktop): a subtle screen-space blur on the main race cam for
+  // sense of speed. Created detached; the tier callback attaches it only on the top rung.
+  if (!coarsePointer) {
+    try {
+      const mb = new MotionBlurPostProcess("mblur", scene, 1.0, cam.camera);
+      mb.isObjectBased = false; // screen-based: blurs with camera/scene motion, no per-mesh setup
+      mb.motionStrength = 0.5;
+      mb.motionBlurSamples = 16;
+      cam.camera.detachPostProcess(mb);
+      let mbOn = false;
+      quality.setTierCallback((tier) => {
+        const want = tier >= 4;
+        if (want === mbOn) return;
+        mbOn = want;
+        if (want) cam.camera.attachPostProcess(mb);
+        else cam.camera.detachPostProcess(mb);
+      });
+    } catch { /* motion blur unavailable (weak GPU/headless) — every other effect still applies */ }
+  }
   (window as any).__quality = {
     get tier() { return quality.tier; },
+    get locked() { return quality.locked; },
     max: quality.max,
     setTier: (n: number) => quality.setTier(n),
+    lockTier: (n: number) => quality.lockTier(n),
+    unlock: () => quality.unlock(),
     update: (ms: number, fps?: number) => quality.update(ms, fps),
   };
 
@@ -185,7 +221,7 @@ async function boot() {
   // Career only — exhibition (figure-8 / off-road) races run on the pristine class baseline.
   if (!exhibition && round < 7) {
     const boost = 1 + 0.15 * (7 - round) / 7;
-    field.player.vehicle.cfg.engineForce *= boost;
+    field.setPlayerEngineBoost(boost); // survives garage re-apply (applyPlayerSetup re-folds it in)
   }
   const player = race.racers.find((r) => r.isPlayer)!;
   // Records every car's pose each physics step for the post-race REPLAY.
@@ -293,11 +329,12 @@ async function boot() {
   const seenAttract = (sessionStorage.getItem("rcdirtoval.seen") ?? sessionStorage.getItem("rcsprint.seen")) === "1";
   let state: State = demo ? "racing" : (seenAttract ? "prerace" : "attract");
   let awarded = false;
+  let victoryShown = false; // the winner's-photo overlay has been shown for this race
   const raceDist = def.laps * track.length;
-  // Arcade-style start: a perfect-launch boost if the player hits the gas right as the lights go green
-  // (both modes). `goTime` is set when the light tree fires GO; `launchChecked` closes the window.
-  let goTime = 0;
-  let launchChecked = true;
+  // ROLLING START: the whole field (player included) rolls off the grid AI-driven in formation;
+  // the moment the FIRST car crosses the start/finish line the green flies and the player takes
+  // control. Replaces the old drag-strip light tree / standing start (and its perfect-launch boost).
+  let rolling = false;
 
   // --- Manual camera zoom (all views) + Pause (P / ⏸) ---
   // Arcade (RC Pro-Am) starts ZOOMED OUT ~25% for more track context; Career/Sim starts at normal zoom.
@@ -331,12 +368,34 @@ async function boot() {
     motor.setPaused(paused);
     if (pauseBtn) pauseBtn.textContent = paused ? "▶" : "⏸";
     if (paused) {
+      // Graphics label helpers: "AUTO (High)" while adaptive, or a pinned tier name when locked.
+      const Q_NAMES = ["MIN", "LOW", "MED", "HIGH", "ULTRA"];
+      const qLabel = () => (quality.locked ? Q_NAMES[quality.tier] : `AUTO (${Q_NAMES[quality.tier]})`);
       pauseMenuEl = Screens.pauseMenu({
         onResume: () => setPaused(false),
         onRestart: () => { sessionStorage.setItem("rcdirtoval.autostart", "1"); location.reload(); }, // fresh race, same settings
         onMenu: () => { location.reload(); }, // back to the setup screen (career progress kept)
         muted: motor.muted,
         onToggleSound: () => { if (motor.muted) motor.enable(); else motor.setMuted(true); reflectMute(); return motor.muted; },
+        autoThrottle,
+        onToggleAuto: () => {
+          autoThrottle = !autoThrottle;
+          try { localStorage.setItem("rcdirtoval.autothrottle", autoThrottle ? "1" : "0"); } catch { /* ignore */ }
+          input.setAutoThrottle(autoThrottle);
+          return autoThrottle;
+        },
+        qualityLabel: qLabel(),
+        onCycleQuality: () => {
+          // Cycle AUTO → MIN → LOW → MED → HIGH → ULTRA → AUTO. Manual picks pin the tier
+          // (the FPS controller stands down) and persist; AUTO unpins it.
+          if (!quality.locked) quality.lockTier(0);
+          else if (quality.tier < quality.max) quality.lockTier(quality.tier + 1);
+          else quality.unlock();
+          try { localStorage.setItem("rcdirtoval.quality", quality.locked ? String(quality.tier) : "auto"); } catch { /* ignore */ }
+          return qLabel();
+        },
+        viewLabel: VIEW_LABEL[view].replace(/^\S+\s/, ""), // strip the emoji, keep the name
+        onCycleView: () => { cycleView(); return VIEW_LABEL[view].replace(/^\S+\s/, ""); },
       });
     } else if (pauseMenuEl) { pauseMenuEl.remove(); pauseMenuEl = null; }
   };
@@ -374,6 +433,15 @@ async function boot() {
     const order = race.racers.map((r) => r.name);
     const gained = order.map((_, i) => POINTS[i] ?? 0);
     const finishPos = race.positionOf(player);
+
+    // Player WON — show the winner's photo first (every mode); the results flow resumes
+    // only when CONTINUE is clicked (finalize re-enters with the flag set).
+    if (finishPos === 1 && !victoryShown) {
+      victoryShown = true;
+      awarded = false; // allow the re-entry to run the real finalize body
+      Screens.victory(() => finalize());
+      return;
+    }
 
     // --- Exhibition (figure-8 / off-road): a single stand-alone race — no career points, no arcade
     //     run-state. Just show the finish + offer a replay or back to the menu. ---
@@ -454,13 +522,28 @@ async function boot() {
     showRes();
   };
 
-  // Run the drag-strip light tree, then drop the green and start the race.
+  // ROLLING START: the field pulls away AI-driven; the green (and player control) comes when the
+  // leader crosses the start/finish line — handled in the render loop via field.checkLineCross().
+  const flashBanner = (text: string, color: string, holdMs: number) => {
+    const d = document.createElement("div");
+    d.style.cssText =
+      "position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:30;pointer-events:none;" +
+      `font-family:'Segoe UI',system-ui,sans-serif;font-size:64px;font-weight:900;letter-spacing:3px;color:${color};` +
+      "text-shadow:0 4px 20px rgba(0,0,0,0.85);transition:opacity 400ms;";
+    d.textContent = text;
+    document.body.appendChild(d);
+    setTimeout(() => { d.style.opacity = "0"; setTimeout(() => d.remove(), 450); }, holdMs);
+  };
   const launchRace = () => {
-    Screens.arcadeLightTree(() => {
-      race.start(performance.now()); state = "racing"; flagGirl.greenFlag();
-      track.resetGroove(); pausedAccum = 0; paused = false;
-      goTime = performance.now(); launchChecked = false; // open the perfect-launch window
-    });
+    state = "racing"; rolling = true;
+    track.resetGroove(); pausedAccum = 0; paused = false;
+    flashBanner("ROLLING START", "#ffd34d", 2200);
+  };
+  const dropGreen = () => {
+    rolling = false;
+    race.start(performance.now());
+    flagGirl.greenFlag();
+    flashBanner("GREEN GREEN GREEN", "#6dff7a", 1600);
   };
 
   scene.executeWhenReady(() => {
@@ -490,7 +573,9 @@ async function boot() {
         def, round, total: careerTracks.length, champ: standings(career),
         name: loadPlayerName(),
         classes: CAR_CLASS_LIST.map((c) => ({ id: c.id, label: c.label, subtitle: c.subtitle })),
-        currentClass: carClass, currentMode: gameMode, currentTrack: trackChoice, muted: motor.muted, autoThrottle,
+        currentClass: carClass, currentMode: gameMode, currentTrack: trackChoice, currentTime: def.night ? "night" : "day", muted: motor.muted, autoThrottle,
+        onExportSave: exportSave,
+        onImportSave: importSave,
         onStart: (sel) => {
           motor.resume(); // START is a user gesture — make sure the audio context is live
           const nm = titleCaseName(sel.name); savePlayerName(nm); player.name = nm;
@@ -499,12 +584,25 @@ async function boot() {
           try { localStorage.setItem("rcdirtoval.autothrottle", sel.auto ? "1" : "0"); } catch { /* ignore */ }
           input.setAutoThrottle(autoThrottle);
           const classChanged = isCarClassId(sel.classId) && sel.classId !== carClass;
-          // Changing class, mode, OR track persists the pick + reloads so the field/track/career rebuild,
-          // then autostarts straight into the race.
-          if (classChanged || sel.mode !== gameMode || sel.track !== trackChoice) {
+          // Time-of-day only matters for EXHIBITION tracks (career re-rolls it randomly per round and
+          // ignores the toggle). Only persist + treat as a change for exhibition, so a career start
+          // never writes the exhibition pref or forces a needless reload.
+          const curTime = def.night ? "night" : "day";
+          const timeChanged = exhibition && sel.time !== curTime;
+          if (exhibition) saveDayNight(sel.time);
+          // Changing class, mode, track, OR (exhibition) time of day persists the pick + reloads so
+          // the field/track/career/lighting rebuild, then autostarts straight into the race.
+          if (classChanged || sel.mode !== gameMode || sel.track !== trackChoice || timeChanged) {
             if (isCarClassId(sel.classId)) saveCarClass(sel.classId);
             saveMode(sel.mode);
             saveTrackChoice(sel.track);
+            // Drop the dev-override query params (?track/class/mode/day/night) before reloading —
+            // location.reload() keeps the query string, and those params would otherwise SHADOW the
+            // freshly-saved menu pick (e.g. a stale ?track=offroad would re-race off-road). Keep
+            // ?demo/?round/?view dev affordances intact.
+            const u = new URL(location.href);
+            ["track", "class", "mode", "day", "night"].forEach((k) => u.searchParams.delete(k));
+            history.replaceState(null, "", u.toString());
             sessionStorage.setItem("rcdirtoval.autostart", "1");
             location.reload();
           } else {
@@ -513,13 +611,14 @@ async function boot() {
         },
       });
     }
-    console.log(`[RC Dirt Oval] ready — round ${round + 1}: ${def.name} (${state}, ${carClass}, ${gameMode})`);
+    console.log(`[Super Jay RC] ready — round ${round + 1}: ${def.name} (${state}, ${carClass}, ${gameMode})`);
   });
 
   const FIXED = 1 / 60; // physics step
   const RIGHT = new Vector3(1, 0, 0); // local +x, for stereo-panning AI motors relative to the camera
   let physAcc = 0;
   let acc = 0;
+  let prevCamPos: { x: number; z: number } | null = null; // last frame's listener position (Doppler relative-velocity)
   scene.onBeforeRenderObservable.add(() => {
     const frameDt = Math.min(0.1, engine.getDeltaTime() / 1000);
     if (state === "racing" && !paused) {
@@ -531,36 +630,46 @@ async function boot() {
       physAcc += frameDt;
       let steps = 0;
       while (physAcc >= FIXED && steps < 6) {
-        field.update(FIXED, drive, raceFraction);
+        // ROLLING START: until the leader crosses the line the WHOLE field (player included) is
+        // AI-driven in formation; the first forward crossing drops the green + hands over control.
+        if (rolling) {
+          field.attractUpdate(FIXED, raceFraction);
+          if (field.checkLineCross()) dropGreen();
+        } else {
+          field.update(FIXED, drive, raceFraction);
+        }
         recorder.record(); // capture this step's poses for the post-race replay
         physAcc -= FIXED;
         steps++;
       }
       race.update(performance.now() - pausedAccum);
       track.updateGroove(field.cars, frameDt); // darken the driven-in racing groove (visual only, ≤40%)
-      // Perfect-launch boost (both modes): a brief jump if the player hits the gas within ~350ms of GO.
-      if (!launchChecked) {
-        if (drive.throttle > 0.5) {
-          launchChecked = true;
-          if (performance.now() - goTime < 350) field.player.vehicle.applyBuff("accel", 1.5, 1.6);
-        } else if (performance.now() - goTime > 1200) {
-          launchChecked = true; // window closed
-        }
-      }
       if (arcade) arcade.update(frameDt, field); // pickups / boost strips / letters / slicks
-      motor.update(drive.throttle, field.playerVehicle.speed); // player-car electric whine
+      // player-car engine voice (while rolling the AI is on the pedal — approximate from speed)
+      motor.update(rolling ? Math.min(1, field.playerVehicle.speed / 10) : drive.throttle, field.playerVehicle.speed);
       // Every other car: a light electric whine, stereo-panned + distance-faded to the active camera.
       const camA = scene.activeCamera;
       if (camA) {
         const camPos = camA.globalPosition;
         const camRight = camA.getDirection(RIGHT);
-        const vs: { speed: number; throttle: number; pan: number; gain: number }[] = [];
+        // Listener (camera) velocity by finite difference — the in-car / RC-Pro-Am cams ride
+        // the player car, so Doppler must use RELATIVE velocity or side-by-side pack mates
+        // would get a phantom pitch bend from their own absolute speed.
+        let cvx = 0, cvz = 0;
+        if (prevCamPos && frameDt > 1e-4) {
+          cvx = (camPos.x - prevCamPos.x) / frameDt;
+          cvz = (camPos.z - prevCamPos.z) / frameDt;
+        }
+        prevCamPos = { x: camPos.x, z: camPos.z };
+        const vs: { speed: number; throttle: number; pan: number; gain: number; closing: number }[] = [];
         for (let i = 1; i < field.cars.length; i++) {
           const v = field.cars[i].vehicle;
           const dx = v.position.x - camPos.x, dy = v.position.y - camPos.y, dz = v.position.z - camPos.z;
           const dist = Math.hypot(dx, dy, dz) || 1;
           const pan = (dx * camRight.x + dy * camRight.y + dz * camRight.z) / dist;
-          vs.push({ speed: v.speed, throttle: Math.max(0, Math.min(1, v.debug.drive)), pan, gain: Math.max(0, 1 - dist / 70) });
+          // closing speed toward the camera (+ = approaching) → a small Doppler bend on the voice
+          const closing = -((v.velX - cvx) * dx + (v.velZ - cvz) * dz) / dist;
+          vs.push({ speed: v.speed, throttle: Math.max(0, Math.min(1, v.debug.drive)), pan, gain: Math.max(0, 1 - dist / 70), closing });
         }
         motor.updateVoices(vs);
       }
@@ -614,14 +723,23 @@ async function boot() {
       const h = field.playerVehicle.heading;
       const fwd = new Vector3(Math.sin(h), 0, Math.cos(h));
       const right = new Vector3(Math.cos(h), 0, -Math.sin(h));
-      const along = location.search.includes("photofront") ? 4.2 : -3.4; // front vs rear 3/4 (dev)
-      const eyeY = along > 0 ? 1.0 : 1.5;
-      photoCam.position.set(
-        pp.x + fwd.x * along + right.x * 2.2,
-        pp.y + eyeY,
-        pp.z + fwd.z * along + right.z * 2.2,
-      );
-      photoCam.setTarget(new Vector3(pp.x, pp.y + 0.3, pp.z));
+      if (location.search.includes("photoside")) {
+        // pure side profile (dev) — full nose→roof→sail→spoiler silhouette
+        photoCam.position.set(pp.x + right.x * 5.2, pp.y + 0.7, pp.z + right.z * 5.2);
+        photoCam.setTarget(new Vector3(pp.x, pp.y + 0.35, pp.z));
+      } else {
+        const front = location.search.includes("photofront");
+        const low = location.search.includes("photolow"); // lower, more side-on rear (dev)
+        const along = front ? 4.2 : -3.4; // front vs rear 3/4 (dev)
+        const eyeY = low ? 0.8 : (front ? 1.0 : 1.5);
+        const side = low ? 2.8 : 2.2;
+        photoCam.position.set(
+          pp.x + fwd.x * along + right.x * side,
+          pp.y + eyeY,
+          pp.z + fwd.z * along + right.z * side,
+        );
+        photoCam.setTarget(new Vector3(pp.x, pp.y + 0.3, pp.z));
+      }
       scene.activeCamera = photoCam;
     }
     // Hide the lower-left info bar in the aerial view (it blocks the corner) AND on touch devices
@@ -630,6 +748,19 @@ async function boot() {
 
     // Adaptive graphics quality runs every frame (every state), not just during a race.
     quality.update(engine.getDeltaTime());
+
+    // always-on running leaderboard (top-right, under the minimap) — built lazily once
+    let lbEl = document.getElementById("leaderb");
+    if (!lbEl) {
+      lbEl = document.createElement("div");
+      lbEl.id = "leaderb";
+      lbEl.style.cssText =
+        "position:fixed;right:12px;top:232px;z-index:30;background:rgba(10,12,16,.62);" +
+        "border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:6px 10px;" +
+        "font:11px/1.55 system-ui,sans-serif;color:#dfe6ee;min-width:150px;display:none;pointer-events:none";
+      document.body.appendChild(lbEl);
+    }
+    lbEl.style.display = state === "racing" ? "block" : "none";
 
     if (state !== "racing") return; // no HUD work outside a live race
 
@@ -644,6 +775,9 @@ async function boot() {
       el("hudTime").textContent = fmt(race.curLapTime(player, now));
       el("hudBest").textContent = fmt(player.bestLap);
       minimap.update(field.miniStates());
+      el("leaderb").innerHTML = race.racers
+        .map((r, i) => `<div style="${r.isPlayer ? "color:#ffd34d;font-weight:700" : ""}">P${i + 1}&nbsp; ${r.name}</div>`)
+        .join("");
       const wear = Math.round(field.playerTireWear * 100);
       const gi = race.gapInfo(player, field.playerVehicle.speed);
       const gAhead = gi.ahead == null ? "leader" : `-${gi.ahead.toFixed(1)}s`;
@@ -667,6 +801,6 @@ async function boot() {
 }
 
 boot().catch((e) => {
-  console.error("[RC Dirt Oval] boot failed", e);
+  console.error("[Super Jay RC] boot failed", e);
   loadingEl.textContent = "Boot failed — see console";
 });

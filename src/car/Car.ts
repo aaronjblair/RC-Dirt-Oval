@@ -16,7 +16,7 @@ import { cloneConfig } from "./CarSetup";
 
 export interface CarOptions {
   color?: Color3;
-  number?: number;
+  number?: number | string; // car number — strings allowed for letter numbers (the "11X")
   spawn?: Vector3;
   yaw?: number;
   name?: string; // driver/livery name lettered on the wing deck + body sides
@@ -61,12 +61,16 @@ export function flakeNormal(scene: Scene): Texture {
 export function paintMat(scene: Scene, name: string, color: Color3, flake?: Texture): PBRMaterial {
   const m = new PBRMaterial(name, scene);
   m.albedoColor = color;
-  m.metallic = 0.1; // keep low so the colour stays vibrant (high metallic muddies coloured paint)
-  m.roughness = 0.32;
+  // Real 1:10 bodies are Lexan painted from the INSIDE — the outer shell is glass-smooth,
+  // so the base paint sits glossy (low roughness) under a near-mirror clearcoat. This
+  // "liquid" uniform gloss is THE defining RC-scale look (no orange peel, no brush texture).
+  m.metallic = 0.04; // keep low so the colour stays vibrant (high metallic muddies coloured paint)
+  m.roughness = 0.19;
   if (flake) { m.bumpTexture = flake; m.bumpTexture.level = 0.18; } // faint flake sparkle only
   m.clearCoat.isEnabled = true;
   m.clearCoat.intensity = 1.0;
-  m.clearCoat.roughness = 0.06;
+  m.clearCoat.roughness = 0.045;
+  m.enableSpecularAntiAliasing = true; // stop the glossy coat shimmering/sparkling as the car moves
   return m;
 }
 export function flatMat(scene: Scene, name: string, color: Color3, rough: number, metal: number): PBRMaterial {
@@ -112,7 +116,7 @@ export function imageDecalMat(scene: Scene, name: string, url: string): PBRMater
 
 /** Body side livery: car-color base, black lower swoosh, white lightning streak,
  *  numbered roundel and "RACE INSPIRED" — the Losi 22S graphic language. */
-function liverySideDraw(color: Color3, num: number, name?: string): Draw {
+function liverySideDraw(color: Color3, num: number | string, name?: string): Draw {
   return (ctx, w, h) => {
     ctx.fillStyle = rgb(color); ctx.fillRect(0, 0, w, h);
     // black lower wedge
@@ -151,7 +155,7 @@ function superJayTagDraw(): Draw {
 
 /** Wing side plate (dive plate): black with a color band, "SPRINT" + big number.
  *  `redOutline`: draw the big number as RED glyphs with a BLACK outline (the #42 livery). */
-function wingSideDraw(color: Color3, num: number, redOutline = false): Draw {
+function wingSideDraw(color: Color3, num: number | string, redOutline = false): Draw {
   return (ctx, w, h) => {
     ctx.fillStyle = "#0b0b0d"; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = rgb(color); ctx.fillRect(0, 0, w, h * 0.16);
@@ -173,7 +177,7 @@ function wingSideDraw(color: Color3, num: number, redOutline = false): Draw {
  *  reads as a painted-on number from the driver-stand POV. The glyph fills ~75% of the
  *  deck height. Colour: a luminance-contrasting black/white against the body colour, or
  *  — when `redOutline` is set — RED glyphs with a BLACK outline (overrides the contrast). */
-function wingTopNumberDraw(color: Color3, num: number, redOutline = false): Draw {
+function wingTopNumberDraw(color: Color3, num: number | string, redOutline = false): Draw {
   return (ctx, w, h) => {
     ctx.clearRect(0, 0, w, h); // transparent — wing paint reads through
     ctx.font = `bold ${h * 0.75}px "Arial Black", Arial, sans-serif`;
@@ -196,7 +200,7 @@ function wingTopNumberDraw(color: Color3, num: number, redOutline = false): Draw
 
 /** Wing top deck: black with a center color chord stripe and the car's name (the
  *  most visible surface from the driver-stand view, so the tribute reads here). */
-function wingDeckDraw(color: Color3, label = "RC DIRT OVAL"): Draw {
+function wingDeckDraw(color: Color3, label = "SUPER JAY RC"): Draw {
   return (ctx, w, h) => {
     ctx.fillStyle = "#0b0b0d"; ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = rgb(color); ctx.fillRect(0, h * 0.34, w, h * 0.32);
@@ -248,7 +252,7 @@ export function sidewallDraw(): Draw {
 
 /** A proper RC dirt tire: rounded-shoulder carcass revolved from a cross-section,
  *  lettered Hoosier sidewalls, and a chrome dished beadlock wheel with a center nut. */
-export function buildWheel(scene: Scene, name: string, radius: number, width: number, tireMat: PBRMaterial, hubMat: PBRMaterial, sideMat: PBRMaterial): TransformNode {
+export function buildWheel(scene: Scene, name: string, radius: number, width: number, tireMat: PBRMaterial, hubMat: PBRMaterial, sideMat: PBRMaterial, lugs = true): TransformNode {
   const hub = new TransformNode(name, scene);
   const r = radius, hw = width / 2, ri = r * 0.5; // ri = bead/rim seat radius
   // Tire cross-section (radius, axial) revolved about the axle -> rounded shoulders,
@@ -268,18 +272,20 @@ export function buildWheel(scene: Scene, name: string, radius: number, width: nu
   // Tread lugs: a ring of small rubber blocks set INTO the tread (top at r*0.985, never past r)
   // so the tire reads as a knobby dirt tire from the stands without exceeding the tread radius.
   // Each lug is a thin instance of one source box so all four tires share one draw call.
-  const lugN = 14, lugTop = r * 0.985, lugBase = r * 0.9;
-  const lugSrc = MeshBuilder.CreateBox(name + "_lug", { width: width * 0.22, height: (lugTop - lugBase), depth: r * 0.22 }, scene);
-  lugSrc.parent = hub; lugSrc.material = tireMat; lugSrc.isVisible = false;
-  const rr = (lugTop + lugBase) / 2;
-  for (let i = 0; i < lugN; i++) {
-    const a = (i / lugN) * Math.PI * 2;
-    for (const zr of [-0.34, 0.34]) { // two staggered rows across the tread
-      const ang = a + (zr < 0 ? 0 : Math.PI / lugN); // offset rows → staggered knob pattern
-      const inst = lugSrc.createInstance(name + "_lug" + i + (zr < 0 ? "a" : "b"));
-      inst.parent = hub;
-      inst.position.set(zr * hw, Math.cos(ang) * rr, Math.sin(ang) * rr);
-      inst.rotation.x = -ang;
+  if (lugs) {
+    const lugN = 14, lugTop = r * 0.985, lugBase = r * 0.9;
+    const lugSrc = MeshBuilder.CreateBox(name + "_lug", { width: width * 0.22, height: (lugTop - lugBase), depth: r * 0.22 }, scene);
+    lugSrc.parent = hub; lugSrc.material = tireMat; lugSrc.isVisible = false;
+    const rr = (lugTop + lugBase) / 2;
+    for (let i = 0; i < lugN; i++) {
+      const a = (i / lugN) * Math.PI * 2;
+      for (const zr of [-0.34, 0.34]) { // two staggered rows across the tread
+        const ang = a + (zr < 0 ? 0 : Math.PI / lugN); // offset rows → staggered knob pattern
+        const inst = lugSrc.createInstance(name + "_lug" + i + (zr < 0 ? "a" : "b"));
+        inst.parent = hub;
+        inst.position.set(zr * hw, Math.cos(ang) * rr, Math.sin(ang) * rr);
+        inst.rotation.x = -ang;
+      }
     }
   }
   // Lettered Hoosier sidewall on each outer face (sits just inside the shoulder).
@@ -553,7 +559,7 @@ export function createCar(
   mBoard.albedoColor = color; mBoard.roughness = 0.36; mBoard.metallic = 0.1;
   mBoard.backFaceCulling = false; mBoard.twoSidedLighting = true;
   // Flat top deck (rear). Hero: plain body colour (logo is the only marking). Others: deck graphic.
-  const deckMat = logoUrl ? mBoard : decalMat(scene, "wdeck", 512, 256, wingDeckDraw(color, name ?? "RC DIRT OVAL"));
+  const deckMat = logoUrl ? mBoard : decalMat(scene, "wdeck", 512, 256, wingDeckDraw(color, name ?? "SUPER JAY RC"));
   const deck = add(MeshBuilder.CreateBox("topDeck", { width: WW, height: 0.04, depth: FLAT }, scene), deckMat, wingPivot as unknown as TransformNode);
   deck.position.set(0, 0, -0.34);
   if (logoMat) {

@@ -6,6 +6,7 @@ import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { PBRMaterial } from "@babylonjs/core/Materials/PBR/pbrMaterial";
 import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture";
+import { Texture } from "@babylonjs/core/Materials/Textures/texture";
 import { PointLight } from "@babylonjs/core/Lights/pointLight";
 import type { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator";
 import type { OvalTrack } from "./OvalTrack";
@@ -76,6 +77,11 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
   const L = track.def.straightLength;
   const W = track.def.width;
   const outerX = R + W / 2;
+  // The off-road loop winds far past the oval's Math.max(L,R) ring, so background props
+  // (stand, towers, vegetation, backdrop) must be pushed outside its real footprint or
+  // they sit ON the racing surface. Oval/figure-8 keep the original oval-ring placement.
+  const offroad = (track.def.shape ?? "oval") === "offroad";
+  const loopR = track.outerRadius;
 
   const steel = mat(scene, "steel", new Color3(0.5, 0.52, 0.56), 0.4, 0.8);   // galvanized structure
   const truss = mat(scene, "truss", new Color3(0.42, 0.44, 0.48), 0.35, 0.85); // brighter chromed bracing
@@ -93,9 +99,12 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
   //     The FRAME is REAL-WORLD size and stays native (deck ≈5u / 5 ft) — per the
   //     world-scale rule only the cars/track are 1:10. The PEOPLE on it and the booth
   //     beside it are scaled up to full human / building size separately. ---
-  const standX = outerX + 6;
+  const standX = offroad ? loopR + 8 : outerX + 6;
   const standY = 5; // ~5 ft deck (1 unit ≈ 1 ft)
   const standLen = 26; // doubled from 13 so the stand reads as a long grandstand
+  // Off-road has NO standalone drivers' stand — the wrap-around grandstand bowl (below) is the seating,
+  // so this single stand would just interpenetrate it. Build it only for oval/figure-8.
+  if (!offroad) {
   const deck = MeshBuilder.CreateBox("standDeck", { width: 3.2, height: 0.25, depth: standLen }, scene);
   deck.position.set(standX, standY, 0); deck.material = steel; cast(deck);
   // Tiered bleacher seating: three rising planks stepping UP and BACK (outboard +x) from the deck,
@@ -165,16 +174,71 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
     const z = -11.5 + i * (23 / (fanCount - 1)); // evenly spread across the longer walkway
     buildSpectator(scene, i, standX - 1.3, standY + 0.13, z, faceTrack, fans[i % fans.length], shadow);
   }
+  } // end if(!offroad) — standalone drivers' stand
+
+  // --- STADIUM arena: a CONTINUOUS raked grandstand BOWL wrapping the whole loop just behind the
+  //     perimeter wall and rising tall, so the track reads as an enclosed supercross arena. The far
+  //     crowd is a packed-people TEXTURE on the rake (cheap, reads full); a few real figures on the
+  //     lower rows add parallax detail. ---
+  if (offroad) {
+    // The bowl FOLLOWS the centerline (concentric with the perimeter wall), so it wraps the winding
+    // loop with a uniform gap — an axis-aligned ellipse would pinch at the diagonals and overlap the
+    // wall/track. Offsets are measured outward from the centerline (wall sits at W/2+3 = ~10).
+    const W = track.def.width;
+    const ROWS = 16, rise = 1.25, run = 0.95, baseY = 3;        // start at the wall top
+    const innerOff = W / 2 + 5;                                  // just behind the wall
+    const depth = ROWS * run, topY = baseY + ROWS * rise;        // ~21u tall
+
+    // crowd texture: thousands of colored blobs on bleacher gray → a packed stand from any distance
+    const ct = new DynamicTexture("arenaCrowdTex", { width: 1024, height: 256 }, scene, true);
+    const cx = ct.getContext() as CanvasRenderingContext2D;
+    cx.fillStyle = "#2b2f36"; cx.fillRect(0, 0, 1024, 256);
+    const shirt = ["#c0392b", "#2471a3", "#f1c40f", "#27ae60", "#8e44ad", "#d35400", "#ecf0f1", "#16a085", "#e67e22", "#bdc3c7"];
+    for (let i = 0; i < 2600; i++) {
+      const px = Math.random() * 1024, py = 18 + Math.random() * 230;
+      cx.fillStyle = shirt[(Math.random() * shirt.length) | 0];
+      cx.beginPath(); cx.ellipse(px, py, 3.2, 4.2, 0, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = "#e8c9a0"; cx.beginPath(); cx.arc(px, py - 4.5, 1.8, 0, Math.PI * 2); cx.fill(); // head
+    }
+    ct.update(); ct.wrapU = Texture.WRAP_ADDRESSMODE; ct.uScale = Math.round(track.length / 6); ct.anisotropicFilteringLevel = 8;
+    const crowdMat = new PBRMaterial("arenaCrowdMat", scene);
+    crowdMat.albedoTexture = ct; crowdMat.roughness = 0.95; crowdMat.metallic = 0;
+    crowdMat.emissiveTexture = ct; crowdMat.emissiveColor = new Color3(0.12, 0.12, 0.12); // lift a touch under floods
+
+    // a centerline-following ring ribbon between two outward offsets / heights
+    const ringRibbon = (name: string, off0: number, y0: number, off1: number, y1: number, m: PBRMaterial) => {
+      const rib = MeshBuilder.CreateRibbon(name, { pathArray: [track.ringPath(off0, y0), track.ringPath(off1, y1)], closeArray: true, sideOrientation: Mesh.DOUBLESIDE }, scene);
+      rib.material = m; cast(rib);
+    };
+    ringRibbon("arenaBowl", innerOff, baseY, innerOff + depth, topY, crowdMat);    // raked crowd slope
+    ringRibbon("arenaBowlBack", innerOff + depth, topY, innerOff + depth, topY + 3.5, roofMat); // back wall
+    for (let t = 4; t < ROWS; t += 4) { // dark step lines for a seated read
+      const off = innerOff + t * run, y = baseY + t * rise;
+      ringRibbon("arenaStep" + t, off, y, off, y + 0.45, steel);
+    }
+    // a sparse FRONT row of real figures for parallax detail — far rows are carried by the crowd
+    // texture, so keep the count low and OFF the shadow map (they sit behind the texture anyway).
+    const arenaFans = spectatorLooks();
+    const seat = track.ringPath(innerOff + 0.25 * depth, baseY + 0.25 * ROWS * rise + 0.13);
+    const PER = 16, step = Math.max(1, Math.floor((seat.length - 1) / PER));
+    let sid = 500;
+    for (let i = 0; i < seat.length - 1; i += step) {
+      const p = seat[i];
+      const yaw = Math.atan2(-p.x, -p.z); // face the arena centre
+      buildSpectator(scene, sid++, p.x, p.y, p.z, yaw, arenaFans[sid % arenaFans.length], null);
+    }
+  }
 
   // --- Draped sponsor BANNER behind the stand (outboard +x side), reading at NIGHT ---
-  {
+  //     (off-road has no standalone stand — the wrap-around bowl is the seating) ---
+  if (!offroad) {
     const dt = new DynamicTexture("standBannerTex", { width: 1024, height: 256 }, scene, true);
     const ctx = dt.getContext() as CanvasRenderingContext2D;
     ctx.fillStyle = "#11161f"; ctx.fillRect(0, 0, 1024, 256);
     ctx.fillStyle = "#c0392b"; ctx.fillRect(0, 0, 1024, 14); ctx.fillRect(0, 242, 1024, 14);
     ctx.fillStyle = "#f1c40f"; ctx.font = "bold 110px Arial Black, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("RC DIRT OVAL", 512, 108);
+    ctx.fillText("SUPER JAY RC", 512, 108);
     ctx.fillStyle = "#ecf0f1"; ctx.font = "bold 44px Arial, sans-serif";
     ctx.fillText("FLORA VISTA SPEEDWAY", 512, 196);
     // grommet hints punched along the top hem so it reads as a hung vinyl banner
@@ -203,8 +267,9 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
   }
 
   // --- Small roofed TIMING BOOTH/shack beside the stand on the +z end, with a DARK-GRAY
-  //     gable roof. Built native under its own root then scaled to a real building (~9u). ---
-  {
+  //     gable roof. Built native under its own root then scaled to a real building (~9u).
+  //     (off-road skips it — no standalone stand to sit beside) ---
+  if (!offroad) {
     const boothRoot = new TransformNode("boothRoot", scene);
     boothRoot.position.set(standX, 0, standLen / 2 + 6.5); // just past the +z end of the deck
     const bScale = 3.4; // ~2.6u native → ~8.8u tall building
@@ -276,14 +341,55 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
   floor.isPickable = false; floor.freezeWorldMatrix();
 
   // --- Distant backdrop + near vegetation, themed per round (see buildBackdrop) ---
-  buildBackdrop(scene, track, night);
-  buildVegetation(scene, track.def.backdrop, Math.max(L, R) + 55, night);
+  // OFF-ROAD STADIUM gets NEITHER: the enclosing grandstand bowl is the horizon, so a desert
+  // backdrop/scrub would only show as a gap above the wall and break the arena read.
+  if (!offroad) {
+    const vegRad = Math.max(L, R) + 55;
+    buildBackdrop(scene, track, night, null);
+    buildVegetation(scene, track.def.backdrop, vegRad, night);
+  }
 
   // --- Light towers at the 4 corners + 2 mid-straight: a 4-leg lattice mast carrying a
   //     cross-arm of individual lamp fixtures (each a small dished can that catches the bloom). ---
   const lampGlass = mat(scene, "lampGlass", new Color3(1, 0.98, 0.9), 0.25, 0.1);
   lampGlass.emissiveColor = night ? new Color3(3.0, 2.8, 2.2) : new Color3(1, 0.95, 0.8);
   const lampCan = mat(scene, "lampCan", new Color3(0.18, 0.19, 0.21), 0.5, 0.6); // dark fixture housing
+  // night-only atmosphere: a soft halo sprite over each fixture cluster + a faint beam cone fanning
+  // down toward the racing surface — the glare/haze that makes outdoor stadium floodlights read as
+  // real at night (the PointLights light the track but the sources themselves showed no glow)
+  let glowMat: PBRMaterial | null = null, beamMat: PBRMaterial | null = null;
+  if (night) {
+    const glowTex = new DynamicTexture("lampGlowTex", { width: 128, height: 128 }, scene, false);
+    const g = glowTex.getContext() as CanvasRenderingContext2D;
+    const rad = g.createRadialGradient(64, 64, 4, 64, 64, 63);
+    rad.addColorStop(0, "rgba(255,244,214,0.95)");
+    rad.addColorStop(0.25, "rgba(255,236,190,0.42)");
+    rad.addColorStop(0.6, "rgba(255,228,170,0.12)");
+    rad.addColorStop(1, "rgba(255,224,160,0)");
+    g.clearRect(0, 0, 128, 128); g.fillStyle = rad; g.fillRect(0, 0, 128, 128);
+    glowTex.hasAlpha = true; glowTex.update();
+    glowMat = new PBRMaterial("lampGlowM", scene);
+    glowMat.unlit = true;
+    glowMat.albedoTexture = glowTex; glowMat.useAlphaFromAlbedoTexture = true;
+    glowMat.albedoColor = new Color3(2.6, 2.35, 1.8); // >1 so bloom catches the halo
+    glowMat.transparencyMode = PBRMaterial.PBRMATERIAL_ALPHABLEND;
+    glowMat.backFaceCulling = false; glowMat.disableDepthWrite = true;
+    const beamTex = new DynamicTexture("lampBeamTex", { width: 4, height: 128 }, scene, false);
+    const b = beamTex.getContext() as CanvasRenderingContext2D;
+    const lin = b.createLinearGradient(0, 0, 0, 128);
+    lin.addColorStop(0, "rgba(255,240,205,0.5)");   // bright at the fixtures...
+    lin.addColorStop(0.55, "rgba(255,234,185,0.14)");
+    lin.addColorStop(1, "rgba(255,230,175,0)");     // ...faded out before the ground
+    b.clearRect(0, 0, 4, 128); b.fillStyle = lin; b.fillRect(0, 0, 4, 128);
+    beamTex.hasAlpha = true; beamTex.update();
+    beamMat = new PBRMaterial("lampBeamM", scene);
+    beamMat.unlit = true;
+    beamMat.albedoTexture = beamTex; beamMat.useAlphaFromAlbedoTexture = true;
+    beamMat.albedoColor = new Color3(1.15, 1.05, 0.85);
+    beamMat.alpha = 0.32;
+    beamMat.transparencyMode = PBRMaterial.PBRMATERIAL_ALPHABLEND;
+    beamMat.backFaceCulling = false; beamMat.disableDepthWrite = true;
+  }
   const towerAt = (x: number, z: number) => {
     const MAST = 16, inward = x > 0 ? -1 : 1; // legs splay; fixtures aim toward the oval center
     // four splayed lattice legs converging toward the top
@@ -314,27 +420,56 @@ export function buildScenery(scene: Scene, track: OvalTrack, shadow: ShadowGener
       const lens = MeshBuilder.CreateCylinder("lampLens", { diameter: 0.5, height: 0.08, tessellation: 10 }, scene);
       lens.position.set(fx + inward * 0.18, fy, fz); lens.rotation.z = Math.PI / 2; lens.material = lampGlass; cast(lens);
     }
+    if (glowMat && beamMat) {
+      // two overlapping halo sprites washing over the fixture cluster (billboarded glare)
+      for (const off of [-1.1, 1.1]) {
+        const halo = MeshBuilder.CreatePlane("lampHalo", { size: 7 }, scene);
+        halo.position.set(x + inward * 1.35 + off, MAST + 1.05, z);
+        halo.billboardMode = Mesh.BILLBOARDMODE_ALL;
+        halo.material = glowMat; halo.isPickable = false;
+      }
+      // faint volumetric beam cone from the cluster down toward the racing surface
+      const topP = new Vector3(x + inward * 1.2, MAST + 1.0, z);
+      const botP = new Vector3(x + inward * 12.5, 0.3, z);
+      const len = Vector3.Distance(topP, botP);
+      const beam = MeshBuilder.CreateCylinder("lampBeam",
+        { diameterTop: 2.4, diameterBottom: 16, height: len, tessellation: 24, cap: Mesh.NO_CAP }, scene);
+      beam.position.copyFrom(topP.add(botP).scale(0.5));
+      beam.rotation.z = inward * Math.atan2(Math.abs(botP.x - topP.x), topP.y - botP.y);
+      beam.material = beamMat; beam.isPickable = false;
+    }
     // three real point lights along the cluster (unchanged lighting footprint)
     for (let i = -1; i <= 1; i++) {
       const pl = new PointLight("towerL" + x + z + i, new Vector3(x + i * 1.2, MAST - 0.5, z), scene);
-      pl.intensity = night ? 420 : 0.0; // lit only at night (PBR falloff over ~90m)
-      pl.range = 110;
+      pl.intensity = night ? 640 : 0.0; // lit only at night (PBR falloff over ~90m) — bright enough that the clay visibly glows under the towers
+      pl.range = 120;
       pl.diffuse = new Color3(1, 0.96, 0.85);
       pl.specular = new Color3(1, 0.97, 0.88);
     }
   };
-  const tx = outerX + 10, tz = L / 2 + 6;
+  // off-road: ring the floodlight masts OUTSIDE the grandstand bowl (bowl outer ≈ loopR+26) so they
+  // tower behind the crowd and light the arena; oval/figure-8 keep the corner+mid layout
+  const tx = offroad ? loopR + 30 : outerX + 10, tz = offroad ? loopR + 30 : L / 2 + 6;
   towerAt(tx, tz); towerAt(-tx, tz); towerAt(tx, -tz); towerAt(-tx, -tz);
   towerAt(tx, 0); towerAt(-tx, 0); // mid-straight lamps so light rings the whole track
 
-  // --- Start/finish gantry over the front straight ---
-  const gx = R;
-  for (const dx of [-W / 2 - 1, W / 2 + 1]) {
-    const post = MeshBuilder.CreateBox("sfPost", { width: 0.3, height: 5, depth: 0.3 }, scene);
-    post.position.set(gx + dx, 2.5, 0); post.material = steel; cast(post);
+  // --- Start/finish gantry over the line. Oval spans the front straight; the winding
+  //     off-road loop spans the line via its centerline sample (posts on each edge,
+  //     beam aligned across the track). ---
+  const sfBeamMat = mat(scene, "sfBeam", new Color3(0.1, 0.1, 0.12), 0.5);
+  {
+    // ALL shapes: place the gantry at the actual startFinishS sample so it always straddles the
+    // painted line (the oval's was previously hardcoded to s=0 while the line lived elsewhere).
+    const sm = track.sampleAt(track.startFinishS);
+    const ry = Math.atan2(sm.outward.x, sm.outward.z); // align the span across the track (along outward)
+    for (const side of [-1, 1]) {
+      const p = sm.pos.add(sm.outward.scale(side * (W / 2 + 1)));
+      const post = MeshBuilder.CreateBox("sfPost", { width: 0.3, height: 5, depth: 0.3 }, scene);
+      post.position.set(p.x, sm.pos.y + 2.5, p.z); post.material = steel; cast(post);
+    }
+    const beam = MeshBuilder.CreateBox("sfBeam", { width: 0.4, height: 0.6, depth: W + 2 }, scene);
+    beam.position.set(sm.pos.x, sm.pos.y + 5, sm.pos.z); beam.rotation.y = ry; beam.material = sfBeamMat; cast(beam);
   }
-  const beam = MeshBuilder.CreateBox("sfBeam", { width: W + 2, height: 0.6, depth: 0.4 }, scene);
-  beam.position.set(gx, 5, 0); beam.material = mat(scene, "sfBeam", new Color3(0.1, 0.1, 0.12), 0.5); cast(beam);
 
   return { standPosition: new Vector3(standX - 2.4, standY + 1.8, 0) };
 }
@@ -353,14 +488,16 @@ function floorColor(theme: BackdropTheme): Color3 {
 }
 
 /** Distant horizon silhouette, one of seven themes. Instanced + frozen (static). */
-function buildBackdrop(scene: Scene, track: OvalTrack, night: boolean): void {
+function buildBackdrop(scene: Scene, track: OvalTrack, night: boolean, clearOverride: number | null = null): void {
   const R = track.def.cornerRadius, L = track.def.straightLength;
-  const far = Math.max(L, R) + 92;
+  // clearOverride (off-road) pushes the whole ring outside the winding loop's real extent;
+  // oval/figure-8 keep the original Math.max(L,R)-based ring.
+  const far = clearOverride !== null ? clearOverride + 32 : Math.max(L, R) + 92;
   const zS = 1.25; // match the oval's z-stretch so the ring reads as a circle
   // A backdrop instance must never reach inboard of the outfield. Its widest point is
   // closest to the track along the x axis (no z-stretch), so push any whose footprint
   // would overlap the track back out by half its own width. Guarantees no clipping.
-  const clear = Math.max(L, R) + 60; // just beyond the vegetation ring (+55)
+  const clear = clearOverride !== null ? clearOverride : Math.max(L, R) + 60; // just beyond the vegetation ring (+55)
   const safeR = (rWanted: number, footprint: number) => Math.max(rWanted, clear + footprint / 2);
   const dim = (c: Color3, f = 0.4) => (night ? c.scale(f) : c);
   const cone = (name: string, top: number, tess: number, c: Color3) => {
@@ -460,8 +597,10 @@ function buildBackdrop(scene: Scene, track: OvalTrack, night: boolean): void {
   }
 }
 
-/** Near-field vegetation ringing the outfield — pines for green themes, sparse scrub for desert. */
-function buildVegetation(scene: Scene, theme: BackdropTheme, rad: number, night: boolean): void {
+/** Near-field vegetation ringing the outfield — pines for green themes, sparse scrub for desert.
+ *  sx/sz scale the ring per axis: the oval default (0.9/1.2) matches its z-stretch; the winding
+ *  off-road loop passes a circular 1.0/1.0 so the ring clears the loop evenly on every axis. */
+function buildVegetation(scene: Scene, theme: BackdropTheme, rad: number, night: boolean, sx = 0.9, sz = 1.2): void {
   const desert = theme === "mesas" || theme === "dunes" || theme === "badlands";
   if (desert) {
     const scrub = MeshBuilder.CreateSphere("scrub", { diameter: 1, segments: 6 }, scene);
@@ -469,7 +608,7 @@ function buildVegetation(scene: Scene, theme: BackdropTheme, rad: number, night:
     scrub.isVisible = false;
     for (let a = 0; a < Math.PI * 2; a += 0.22) {
       const r = rad + (Math.random() - 0.5) * 30;
-      const x = Math.cos(a) * r * 0.9, z = Math.sin(a) * r * 1.2;
+      const x = Math.cos(a) * r * sx, z = Math.sin(a) * r * sz;
       const s = 2 + Math.random() * 3;
       const p = scrub.createInstance("scrub"); p.position.set(x, s * 0.3, z); p.scaling.set(s * 2, s, s * 2); p.freezeWorldMatrix();
     }
@@ -484,7 +623,7 @@ function buildVegetation(scene: Scene, theme: BackdropTheme, rad: number, night:
   const step = theme === "forest" ? 0.10 : 0.16; // forest is denser
   for (let a = 0; a < Math.PI * 2; a += step) {
     const r = rad + (Math.random() - 0.5) * 18;
-    const x = Math.cos(a) * r * 0.9, z = Math.sin(a) * r * 1.2;
+    const x = Math.cos(a) * r * sx, z = Math.sin(a) * r * sz;
     const tr = trunkM.createInstance("tr"); tr.position.set(x, 1, z); tr.freezeWorldMatrix();
     const lf = leafM.createInstance("lf"); lf.position.set(x, 4, z); lf.scaling.setAll(0.7 + Math.random() * 0.8); lf.freezeWorldMatrix();
   }
