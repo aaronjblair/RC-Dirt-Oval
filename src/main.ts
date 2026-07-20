@@ -609,9 +609,11 @@ async function boot() {
         c11.root.position.y = c32.root.position.y;
         const mid = c32.vehicle.position.add(parked).scale(0.5);
         const right = new Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-        aerialCam.position.copyFrom(mid.subtract(right.scale(7)));
-        aerialCam.position.y = mid.y + 1.0;
-        aerialCam.setTarget(mid.add(new Vector3(0, -0.55, 0))); // aim low → the cars sit above the title text
+        // Raised, level framing (user-verified): both cars fully visible in the upper-middle
+        // of the frame, clear of the title text below.
+        aerialCam.position.copyFrom(mid.subtract(right.scale(8.2)));
+        aerialCam.position.y = mid.y + 2.1;
+        aerialCam.setTarget(mid.add(new Vector3(0, -0.25, 0))); // slight down-aim lifts the pair above the title on short screens too
         introHold = 4.5;
       }
       Screens.attract(def, () => {
