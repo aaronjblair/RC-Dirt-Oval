@@ -5,6 +5,22 @@ installer releases. Architecture lives in `CLAUDE.md`; current state / next step
 
 Live: https://aaronjblair.github.io/RC-Dirt-Oval/ · Releases: https://github.com/aaronjblair/RC-Dirt-Oval/releases
 
+## Unreleased — 2026-07-19 (evening, after the 0.6.0 installer)
+
+- **Sport Mod rebuilt as a true open-cage modified** (per the real #32 shop photo, verified through
+  3 adversarial judge-agent rounds to a 7.2/10 PASS): open cockpit with interior/seat/steering
+  wheel, cage pillars + rock screen, white hero roof, sloped sails, no spoiler, connected front
+  hubs, lower stance, door-filling #32.
+- **Sport Mod / Dirt Oval everywhere** — all remaining "Sprint Car / Losi 22S" branding replaced
+  (HUD, titles, attract splash, Driver's Manual, PWA manifest); `?class=`/`?track=` URL overrides
+  removed; dead picker code deleted. Audit-agent verified zero violations.
+- **Showcase graphics**: GlowLayer, SSR reflections (High+ tiers), SSAO on the aerial/cinematic
+  cameras, cinematic depth-of-field (photo/replay/intro), day color grade.
+- Engine pitched down (~130–390 Hz fundamental, rebalanced harmonics — deep V8 rumble); AI pack
+  matched. Intro hero-shot camera raised (user-verified framing).
+- Fixed the weeks-broken Pages deploy (untracked asset + uncommitted APIs failed CI from a fresh
+  checkout since 2026-07-02) and cleaned ~90 MB of repo debris; project hygiene rules added.
+
 ## 0.6.0 — 2026-07-19
 
 **Focus / simplification**
